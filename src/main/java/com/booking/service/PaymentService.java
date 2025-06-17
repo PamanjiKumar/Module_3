@@ -62,11 +62,11 @@ public class PaymentService {
             throw new IllegalArgumentException("Card has expired.");
         }
          
-
+        // Process Payment
         payment.setStatus("PAID");
         Payment savedPayment = paymentRepo.save(payment);
 
-        // Fetch booking details using bookingId
+        //Confirm Booking after successfull payment
         Long bookingId = Long.parseLong(payment.getBookingId());
         Booking booking = bookingRepo.findById(bookingId).orElse(null);
 

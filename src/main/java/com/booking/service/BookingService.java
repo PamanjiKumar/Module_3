@@ -18,6 +18,14 @@ public class BookingService {
         booking.setStatus("CONFIRMED");
         return bookingRepo.save(booking);
     }
+    
+    public Booking confirmBooking(Long bookingId) {
+    	Booking booking = bookingRepo.findById(bookingId).orElse(null);
+    	if (booking != null && booking.getStatus().equals("PENDING_PAYMENT")) {
+    		return bookingRepo.save(booking);
+    	}
+    	return null;
+    }
 
     public List<Booking> getAllBookings() {
         return bookingRepo.findAll();

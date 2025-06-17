@@ -35,6 +35,13 @@ public class BookingController {
         bookingService.deleteBooking(id);
     }
     
+    @PutMapping("/confirm/{id}")
+    public Booking confirmBooking(@PathVariable Long id) {
+    	return bookingService.confirmBooking(id);
+    }
+    
+    
+    
     //Cancel booking by Id
     @PutMapping("/cancel/{id}")
     public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
