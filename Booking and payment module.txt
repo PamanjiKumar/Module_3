@@ -1,0 +1,1014 @@
+"TravelBooking_PaymentModule/src/main/java/com/booking/BookingApplication.java"
+
+package com.booking;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients(basePackages = "com.booking.client")
+public class BookingApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(BookingApplication.class, args);
+    }
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/client/TravelPackageClient.java"
+package com.booking.client;
+ 
+import com.booking.DTO.TravelPackageDTO;
+import com.booking.response.ApiResponse;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import java.util.List;
+ 
+@FeignClient(name = "travel-package-management")
+public interface TravelPackageClient {
+ 
+    @GetMapping("/api/packages/internal/all")
+    List<TravelPackageDTO> getAllPackages();
+ 
+    @GetMapping("/api/packages/{id}")
+    ApiResponse getPackageById(@PathVariable("id") Long id);
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/client/TravelPackageClient.java"
+package com.booking.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import com.booking.DTO.UserDTO;
+
+
+@FeignClient(name="USERMANAGEMENT-SERVICE")
+public interface UserClient {
+	
+	@GetMapping("/api/users/internal/{id}")
+	UserDTO getUserById(@PathVariable("id") Long userid);
+
+}
+
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/controller/BookingController.java"
+package com.booking.controller;
+
+import com.booking.DTO.BookingDTO;
+import com.booking.entity.Booking;
+
+import com.booking.service.BookingService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/bookings")
+public class BookingController {
+
+    @Autowired
+    private BookingService bookingService;
+
+//    @PostMapping
+//    public Booking create(@RequestBody Booking booking) {
+//        return bookingService.createBooking(booking);
+//    }
+//    
+    @PostMapping
+    public ResponseEntity<BookingDTO> createBooking(@RequestBody Booking booking) {
+        BookingDTO bookingDTO = bookingService.createBooking(booking);
+        return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public List<Booking> getAll() {
+        return bookingService.getAllBookings();
+    }
+
+    @GetMapping("/{id}")
+    public Booking getById(@PathVariable Long id) {
+        return bookingService.getBookingById(id);
+    }
+
+   @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        bookingService.deleteBooking(id);
+    }
+
+    @PutMapping("/cancel/{id}")
+    public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
+        return bookingService.cancelBooking(id);
+    }
+    
+
+
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/controller/PaymentController.java"
+package com.booking.controller;
+
+import com.booking.DTO.PaymentResponseDTO;
+import com.booking.entity.Payment;
+import com.booking.service.PaymentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+
+    @Autowired private PaymentService paymentService;
+
+    @PostMapping public PaymentResponseDTO process(@RequestBody Payment payment) {
+        Payment savedPayment = paymentService.processPayment(payment);
+        PaymentResponseDTO response = new PaymentResponseDTO();
+        response.setPaymentId(savedPayment.getPaymentId());
+        response.setUserId(savedPayment.getUserId());
+        response.setBookingId(savedPayment.getBookingId());
+        response.setAmount(savedPayment.getAmount());
+        response.setStatus(savedPayment.getStatus());
+        response.setPaymentMethod(savedPayment.getPaymentMethod());
+        response.setCurrency(savedPayment.getCurrency());
+        return response;
+    }
+
+    @GetMapping public List<Payment> getAll() { return paymentService.getAllPayments(); }
+    @GetMapping("/{id}") public Payment getById(@PathVariable Long id) { return paymentService.getPaymentById(id); }
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/BookingDTO.java"
+package com.booking.DTO;
+
+import lombok.Data;
+import java.time.LocalDate;
+
+@Data
+public class BookingDTO {
+    private Long bookingId;
+    private Long userId;
+    private Long packageId;
+    private LocalDate tripStartDate;
+    private LocalDate tripEndDate;
+    private String status;
+    private Long paymentId;
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/FlightDTO.java"
+package com.example.dto;
+
+import lombok.Data;
+
+@Data
+public class FlightDTO {
+	private String airline;
+	private String fromCity;
+	private String toCity;
+	private String departureTime;
+	private String arrivalTime;
+
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/HotelDTO.java"
+package com.example.dto;
+
+import lombok.Data;
+
+@Data
+public class HotelDTO {
+	private String name;
+	private String city;
+	private double rating;
+	private int nights;
+	private double costPerNight;
+
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/ItineraryDTO.java"
+package com.example.dto;
+
+import lombok.Data;
+
+@Data
+public class ItineraryDTO {
+	private int dayNumber;
+	private String activityTitle;
+	private String activityDescription;
+
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/OfferDTO.java"
+package com.example.dto;
+
+import lombok.Data;
+
+@Data
+public class OfferDTO {
+	private String couponCode;
+	private String description;
+	private int discountPercentage;
+	private boolean active;
+
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/PaymentResponseDTO.java"
+package com.booking.DTO;
+
+public class PaymentResponseDTO {
+    private Long paymentId;
+    private Long userId;
+    private String bookingId;
+    private double amount;
+    private String status;
+    private String paymentMethod;
+    private String currency;
+
+    // Getters and Setters
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(Long paymentId) {
+        this.paymentId = paymentId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getBookingId() {
+        return bookingId;
+    }
+
+    public void setBookingId(String bookingId) {
+        this.bookingId = bookingId;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+}
+
+
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/SightseeingDTO.java"
+package com.example.dto;
+
+import lombok.Data;
+
+@Data
+public class SightseeingDTO {
+
+	private String location;
+	private String description;
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/TravelPackageDTO.java"
+package com.example.dto;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import lombok.Data;
+
+@Data
+public class TravelPackageDTO {
+	private Long packageId;
+	private Long agentId;
+	private String title;
+	private String description;
+	private int duration;
+	private double price;
+	private int maxCapacity;
+	private LocalDate tripStartDate;
+	private LocalDate tripEndDate;
+	private List<String> highlights;
+	private List<FlightDTO> flights;
+	private List<HotelDTO> hotels;
+	private List<SightseeingDTO> sightseeing;
+	private List<ItineraryDTO> itinerary;
+	private OfferDTO offer;
+	
+}
+
+"TravelBooking_PaymentModule/src/main/java/com/example/DTO/UserDTO.java"
+package com.booking.DTO;
+
+import lombok.Data;
+
+@Data
+public class UserDTO {
+	
+	private Long id;
+	private String name;
+	private String email;
+	private String role;
+}
+
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/entity/Booking.java"
+package com.booking.entity;
+
+import java.time.LocalDate;
+import jakarta.persistence.*;
+
+@Entity
+public class Booking {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long bookingId;
+    private Long userId;
+    private Long packageId;
+    
+    @Column(name= "trip_start_date")
+    private LocalDate tripStartDate;
+    
+    @Column(name= "trip_end_date")
+    private LocalDate tripEndDate;
+    
+    private String status;
+    private Long paymentId;
+
+    // Getters and Setters
+    public Long getBookingId() {
+        return bookingId;
+    }
+
+    public void setBookingId(Long bookingId) {
+        this.bookingId = bookingId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public Long getPackageId() {
+        return packageId;
+    }
+
+    public void setPackageId(Long packageId) {
+        this.packageId = packageId;
+    }
+    
+	public LocalDate getTripStartDate() {
+		return tripStartDate;
+	}
+
+	public void setTripStartDate(LocalDate tripStartDate) {
+		this.tripStartDate = tripStartDate;
+	}
+
+	public LocalDate getTripEndDate() {
+		return tripEndDate;
+	}
+
+	public void setTripEndDate(LocalDate tripEndDate) {
+		this.tripEndDate = tripEndDate;
+	}
+	
+    
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+	public Long getPaymentId() {
+		return paymentId;
+	}
+
+	public void setPaymentId(Long paymentId) {
+		this.paymentId = paymentId;
+	}
+
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/entity/Payment.java"
+
+package com.booking.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+public class Payment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long paymentId;
+	private Long userId;
+    private String bookingId;
+    private double amount;
+    private String status;
+    
+    @Column(nullable = false)
+    private String paymentMethod; // Should be "Credit Card" or "Debit Card"
+ 
+    private String currency;
+ 
+    @Transient
+    private String cardNumber;  // Not stored in DB
+ 
+    @Transient
+    private String cvv;			// Not stored in DB
+ 
+    @Transient
+    private String atmPin;		// Not stored in DB
+    
+    @Transient
+    private String expiryDate;	// Not stored in DB
+    
+    // Getters and Setters
+    
+	public Long getUserId() {
+		return userId;
+	}
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+	public String getBookingId() {
+		return bookingId;
+	}
+	public void setBookingId(String bookingId) {
+		this.bookingId = bookingId;
+	}
+	public double getAmount() {
+		return amount;
+	}
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public String getPaymentMethod() {
+		return paymentMethod;
+	}
+	public void setPaymentMethod(String paymentMethod) {
+		this.paymentMethod = paymentMethod;
+	}
+	public String getCurrency() {
+		return currency;
+	}
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+	public String getCardNumber() {
+		return cardNumber;
+	}
+	public void setCardNumber(String cardNumber) {
+		this.cardNumber = cardNumber;
+	}
+	public String getCvv() {
+		return cvv;
+	}
+	public void setCvv(String cvv) {
+		this.cvv = cvv;
+	}
+	public String getAtmPin() {
+		return atmPin;
+	}
+	public void setAtmPin(String atmPin) {
+		this.atmPin = atmPin;
+	}
+	public Long getPaymentId() {
+		return paymentId;
+	}
+	public void setPaymentId(Long paymentId) {
+		this.paymentId = paymentId;
+	}
+	public String getExpiryDate() {
+		return expiryDate;
+	}
+	public void setExpiryDate(String expiryDate) {
+		this.expiryDate = expiryDate;
+	}
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/repository/BookingRepository.java"
+package com.booking.repository;
+
+import com.booking.entity.Booking;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface BookingRepository extends JpaRepository<Booking, Long> {
+
+List<Booking> findByUserId(Long userId);
+int countByUserId(Long userId);
+List<Booking> findByPackageId(Long packageId);
+
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/repository/BookingRepository.java"
+package com.booking.repository;
+ 
+import com.booking.entity.Payment;
+import org.springframework.data.jpa.repository.JpaRepository;
+ 
+public interface PaymentRepository extends JpaRepository<Payment, Long> {
+
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/response/ApiResponse.java"
+package com.booking.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApiResponse {
+    private boolean success;
+    private String message;
+    private Object data;
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/service/BookingService.java"
+package com.booking.service;
+
+import com.booking.client.TravelPackageClient;
+import com.booking.client.UserClient;
+import com.booking.DTO.BookingDTO;
+import com.booking.DTO.TravelPackageDTO;
+import com.booking.DTO.UserDTO;
+import com.booking.entity.Booking;
+import com.booking.repository.BookingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class BookingService {
+	
+    @Autowired
+    private BookingRepository bookingRepo;
+
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+    
+    @Autowired
+    private UserClient userClient;
+    
+    public void exampleUsage(Long UserId) {
+    	UserDTO user = userClient.getUserById(UserId);
+//    	if(user == null) {
+//    		throw new RuntimeException("User no found with ID: " + booking.getUserId());
+//    	}
+    	System.out.println("User name: " + user.getName());
+    	System.out.println("User email: " + user.getEmail());
+    }
+    
+//    public Booking createBooking(Booking booking) {
+//    	TravelPackageDTO travelPackage = travelPackageClient.getPackageById(booking.getPackageId());
+//    	
+//    	booking.setTripStartDate(travelPackage.getTripStartDate());
+//    	booking.setTripEndDate(travelPackage.getTripEndDate());
+//        booking.setStatus("CONFIRMED");
+//        
+//        System.out.println(travelPackage.getTripStartDate()+" " + travelPackage.getTripEndDate());
+//        
+//        return bookingRepo.save(booking);
+//    }
+//    
+    public BookingDTO createBooking(Booking booking) {
+        TravelPackageDTO travelPackage = travelPackageClient.getPackageById(booking.getPackageId());
+        UserDTO user = userClient.getUserById(booking.getUserId());
+
+        if (travelPackage == null || user == null) {
+            throw new RuntimeException("Invalid travel package or user");
+        }
+
+        booking.setTripStartDate(travelPackage.getTripStartDate());
+        booking.setTripEndDate(travelPackage.getTripEndDate());
+        booking.setStatus("CONFIRMED");
+
+        Booking savedBooking = bookingRepo.save(booking);
+
+        BookingDTO dto = new BookingDTO();
+        dto.setBookingId(savedBooking.getBookingId());
+        dto.setUserId(savedBooking.getUserId());
+        dto.setPackageId(savedBooking.getPackageId());
+        dto.setTripStartDate(savedBooking.getTripStartDate());
+        dto.setTripEndDate(savedBooking.getTripEndDate());
+        dto.setStatus(savedBooking.getStatus());
+        dto.setPaymentId(savedBooking.getPaymentId());
+
+        return dto;
+    }
+    
+    public Booking confirmBooking(Long bookingId) {
+    	Booking booking = bookingRepo.findById(bookingId).orElse(null);
+    	if (booking != null && booking.getStatus().equals("PENDING_PAYMENT")) {
+    		return bookingRepo.save(booking);
+    	}
+    	return null;
+    }
+
+    public List<Booking> getAllBookings() {
+        return bookingRepo.findAll();
+    }
+
+    public Booking getBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+
+    public void deleteBooking(Long id) {
+        bookingRepo.deleteById(id);
+    }
+    
+    //Customers can cancel bookings up to 7 days before departure
+    public ResponseEntity<String> cancelBooking(Long bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.badRequest().body("Booking not found."); 
+        }
+
+        LocalDate today = LocalDate.now();
+        if (booking.getTripStartDate().minusDays(7).isBefore(today)) {
+            return ResponseEntity.badRequest().body("Cancellation not allowed. Must cancel at least 7 days before departure.");
+        }
+
+        booking.setStatus("CANCELLED");
+        bookingRepo.save(booking);
+        return ResponseEntity.ok("Booking cancelled successfully.");
+    }
+
+}
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/service/NotificationService.java"
+package com.booking.service;
+
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationService {
+
+    @Autowired
+    private JavaMailSender mailSender;
+    private final String senderEmail = "indhaanman@gmail.com";
+    private final String customerEmail = "snehithkumar535@gmail.com";
+    private final String agentEmail = "padmajareddy630@gmail.com";
+
+    //Booking details are sent to customers through Email
+    public void notifyCustomer(Booking booking, Payment payment) {
+        String subject = "Your Travel Booking is Confirmed – Booking ID: " + booking.getBookingId();
+        String body = "Dear Customer,\n\n"
+                + "Thank you for booking your travel with us!\n\n"
+                + "Your booking has been successfully confirmed. Here are the details:\n\n"
+                + "- Booking ID: " + booking.getBookingId() + "\n"
+                + "- Package ID: " + booking.getPackageId() + "\n"
+                + "- Travel Dates: " + booking.getTripStartDate() + " to " + booking.getTripEndDate() + "\n"
+                + "- Payment Amount: " + payment.getAmount() + " "+ payment.getCurrency() + "\n"
+                + "- Payment Status: " + payment.getStatus() + "\n\n"
+                + "We look forward to providing you with a wonderful travel experience.\n\n"
+                + "Warm regards,\nTravel Booking Team";
+
+        sendEmail(customerEmail, subject, body);
+        System.out.println("Email is sent to " + customerEmail);
+    }
+
+    //Booking details are sent to travel agent through Email
+    public void notifyTravelAgent(Booking booking, Payment payment) {
+        String subject = "New Booking Received – Booking ID: " + booking.getBookingId();
+        String body = "Dear Travel Agent,\n\n"
+                + "A new booking has been successfully made. Please find the details below:\n\n"
+                + "- Booking ID: " + booking.getBookingId() + "\n"
+                + "- Customer ID: " + booking.getUserId() + "\n"
+                + "- Package ID: " + booking.getPackageId() + "\n"
+                + "- Travel Dates: " + booking.getTripStartDate() + " to " + booking.getTripEndDate() + "\n"
+                + "- Payment Amount: " + payment.getAmount() + " " + payment.getCurrency() + "\n"
+                + "- Payment Status: " + payment.getStatus() + "\n\n"
+                + "Please ensure all arrangements are in place for the customer's travel.\n\n"
+                + "Best regards,\nTravel Booking System";
+
+        sendEmail(agentEmail, subject, body);
+        System.out.println("Email is sent to " + agentEmail);
+    }
+
+    private void sendEmail(String to, String subject, String body) {
+        SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setFrom(senderEmail);
+        mail.setTo(to);
+        mail.setSubject(subject);
+        mail.setText(body);
+        mailSender.send(mail);
+    }
+}
+
+
+
+"TravelBooking_PaymentModule/src/main/java/com/booking/service/PaymentService.java"
+package com.booking.service;
+
+import com.booking.DTO.TravelPackageDTO;
+import com.booking.client.TravelPackageClient;
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import com.booking.repository.BookingRepository;
+import com.booking.repository.PaymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class PaymentService {
+
+    @Autowired
+    private PaymentRepository paymentRepo;
+
+    @Autowired
+    private BookingRepository bookingRepo;
+
+    @Autowired
+    private NotificationService notificationService;
+    
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+
+    public Payment processPayment(Payment payment) {
+        if (!payment.getPaymentMethod().equalsIgnoreCase("Credit Card") &&
+            !payment.getPaymentMethod().equalsIgnoreCase("Debit Card")) {
+            throw new IllegalArgumentException("Only Credit Card or Debit Card are accepted.");
+        }
+
+        if (payment.getCardNumber() == null || !payment.getCardNumber().matches("\\d{16}")) {
+            throw new IllegalArgumentException("Invalid card number. Must be 16 digits.");
+        }
+
+        if (payment.getCvv() == null || !payment.getCvv().matches("\\d{3}")) {
+            throw new IllegalArgumentException("Invalid CVV. Must be 3 digits.");
+        }
+
+        if (payment.getAtmPin() == null || !payment.getAtmPin().matches("\\d{4}")) {
+            throw new IllegalArgumentException("Invalid ATM PIN. Must be 4 digits.");
+        }
+
+        // Expiry Date Format: MM/YY
+        if (payment.getExpiryDate() == null || !payment.getExpiryDate().matches("\\d{2}/\\d{2}")) {
+            throw new IllegalArgumentException("Expiry date must be in MM/YY format.");
+        }
+
+        String[] parts = payment.getExpiryDate().split("/");
+        int expMonth = Integer.parseInt(parts[0]);
+        int expYear = 2000 + Integer.parseInt(parts[1]); // e.g., "25" becomes 2025
+
+        if (expMonth < 1 || expMonth > 12) {
+            throw new IllegalArgumentException("Expiry month must be between 01 and 12.");
+        }
+
+        int currentMonth = LocalDate.now().getMonthValue();
+        int currentYear = LocalDate.now().getYear();
+
+        if (expYear < currentYear || (expYear == currentYear && expMonth < currentMonth)) {
+            throw new IllegalArgumentException("Card has expired.");
+        }
+
+        payment.setStatus("PAID");
+        Payment savedPayment = paymentRepo.save(payment);
+
+        // Fetch booking details using bookingId
+        Long bookingId = Long.parseLong(payment.getBookingId());
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+
+        if (booking != null) {
+        	TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        	if(payment.getAmount() != pkg.getPrice()) {
+        		throw new IllegalArgumentException("Amount does not match package price.");
+        	}
+        	
+        	notificationService.notifyCustomer(booking, savedPayment);
+            notificationService.notifyTravelAgent(booking, savedPayment);
+            
+        }
+
+        return savedPayment;
+    }
+
+    public List<Payment> getAllPayments() {
+        return paymentRepo.findAll();
+    }
+
+    public Payment getPaymentById(Long id) {
+        return paymentRepo.findById(id).orElse(null);
+    }
+}
+
+
+"TravelBooking_PaymentModule/src/main/resources/application.properties"
+spring.application.name=TravelBooking_PaymentModule
+server.port=8086
+
+spring.datasource.url=jdbc:mysql://localhost:3306/booking_db
+spring.datasource.username=root
+spring.datasource.password=root
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+logging.level.org.hibernate.SQL=debug
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=indhaanman@gmail.com
+spring.mail.password=ibzbwveckpfjibey
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+spring.cloud.compatibility-verifier.enabled=false
+
+# Eureka Client Configuration
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka
+eureka.instance.prefer-ip-address=true
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+
+
+"TravelBooking_PaymentModule/target/pom.xml"
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <groupId>com.booking</groupId>
+    <artifactId>TravelBooking_PaymentModule</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>TravelBooking_PaymentModule</name>
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <!-- Spring Cloud BOM -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2024.0.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Spring Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        
+        <!--Eureka Client Dependency-->
+        <dependency>
+    		<groupId>org.springframework.cloud</groupId>
+    		<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+		</dependency>
+
+
+        <!-- Thymeleaf (optional) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+		<dependency>
+    	<groupId>org.projectlombok</groupId>
+    	<artifactId>lombok</artifactId>
+    	<version>1.18.30</version> <!-- Use the latest version if needed -->
+    	<scope>provided</scope>
+		</dependency>
+
+        <!-- Spring Data JPA -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- MySQL Connector -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.33</version>
+        </dependency>
+
+        <!-- Spring Cloud OpenFeign -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!--Dependency for load balancing-->
+        <dependency>
+   			<groupId>org.springframework.cloud</groupId>
+    		<artifactId>spring-cloud-starter-loadbalancer</artifactId>
+		</dependency>
+
+
+        <!-- Spring Mail -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- Web Services (optional) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web-services</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
