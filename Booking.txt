@@ -1,0 +1,342 @@
+"TravelPackageClient.java"
+package com.booking.client;
+
+import com.booking.DTO.TravelPackageDTO;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import java.util.List;
+
+@FeignClient(name = "travel-package-management")
+public interface TravelPackageClient {
+
+    @GetMapping("/api/packages/internal/all")
+    List<TravelPackageDTO> getAllPackages();
+
+    @GetMapping("/api/packages/{id}")
+    TravelPackageDTO getPackageById(@PathVariable("id") Long id);
+}
+
+"UserClient.java"
+package com.booking.client;
+
+import com.booking.DTO.UserDTO;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(name = "usermanagement-service")
+public interface UserClient {
+
+    @GetMapping("/api/users/internal/{id}")
+    UserDTO getUserById(@PathVariable("id") Long userId);
+}
+
+"BookingController.java"
+package com.booking.controller;
+
+import com.booking.DTO.BookingDTO;
+import com.booking.entity.Booking;
+import com.booking.service.BookingService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+@RestController
+@RequestMapping("/api/bookings")
+public class BookingController {
+
+    @Autowired
+    private BookingService bookingService;
+
+    private static final Logger logger = Logger.getLogger(BookingController.class.getName());
+
+    @PostMapping("/user/{userId}/package/{packageId}")
+    public ResponseEntity<BookingDTO> createBooking(@PathVariable Long userId, @PathVariable Long packageId) {
+    	BookingDTO bookingDTO = bookingService.createBooking(userId, packageId); // Define bookingDTO here    	
+    	return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Booking>> getAllBookings() {
+        List<Booking> bookings = bookingService.getAllBookings();
+        return ResponseEntity.ok(bookings);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Booking> getBookingById(@PathVariable Long id) {
+        Booking booking = bookingService.getBookingById(id);
+        if (booking == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(booking);
+    }
+
+    @PutMapping("/cancel/{id}")
+    public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
+        return bookingService.cancelBooking(id);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        bookingService.deleteBooking(id);
+    }
+}
+
+
+"BookingDTO.java"
+package com.booking.DTO;
+
+import lombok.Data;
+import java.time.LocalDate;
+
+@Data
+public class BookingDTO {
+    private Long bookingId;
+    private Long userId;
+    private Long packageId;
+    private LocalDate tripStartDate;
+    private LocalDate tripEndDate;
+    private String status;
+    private Long paymentId;
+}
+
+"TravelPackageDTO.java"
+package com.booking.DTO;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import lombok.Data;
+
+@Data
+public class TravelPackageDTO {
+	private Long packageId;
+	private Long agentId;
+	private String title;
+	private String description;
+	private int duration;
+	private double price;
+	private int maxCapacity;
+	private LocalDate tripStartDate;
+	private LocalDate tripEndDate;
+	private List<String> highlights;
+	private List<FlightDTO> flights;
+	private List<HotelDTO> hotels;
+	private List<SightseeingDTO> sightseeing;
+	private List<ItineraryDTO> itinerary;
+	private OfferDTO offer;
+
+}
+
+
+
+"UserDTO.java"
+package com.booking.DTO;
+
+import lombok.Data;
+
+@Data
+public class UserDTO {
+	
+	private Long userId;
+	private String name;
+	private String email;
+	private String role;
+}
+
+"Booking.java"
+  package com.booking.entity;
+
+import java.time.LocalDate;
+import jakarta.persistence.*;
+
+@Entity
+public class Booking {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long bookingId;
+    
+    private Long userId;
+    private Long packageId;
+    
+    @Column(name= "trip_start_date")
+    private LocalDate tripStartDate;
+    
+    @Column(name= "trip_end_date")
+    private LocalDate tripEndDate;
+
+    private String status;
+    private Long paymentId;
+
+    // Getters and Setters
+    public Long getBookingId() {
+        return bookingId;
+    }
+
+    public void setBookingId(Long bookingId) {
+        this.bookingId = bookingId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public Long getPackageId() {
+        return packageId;
+    }
+
+    public void setPackageId(Long packageId) {
+        this.packageId = packageId;
+    }
+    
+	public LocalDate getTripStartDate() {
+		return tripStartDate;
+	}
+
+	public void setTripStartDate(LocalDate tripStartDate) {
+		this.tripStartDate = tripStartDate;
+	}
+
+	public LocalDate getTripEndDate() {
+		return tripEndDate;
+	}
+
+	public void setTripEndDate(LocalDate tripEndDate) {
+		this.tripEndDate = tripEndDate;
+	}
+	
+    
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+	public Long getPaymentId() {
+		return paymentId;
+	}
+
+	public void setPaymentId(Long paymentId) {
+		this.paymentId = paymentId;
+	}
+
+}
+
+
+
+"BookingRepository.java"
+package com.booking.repository;
+
+import com.booking.entity.Booking;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface BookingRepository extends JpaRepository<Booking, Long> {
+
+List<Booking> findByUserId(Long userId);
+int countByUserId(Long userId);
+List<Booking> findByPackageId(Long packageId);
+}
+
+
+"BookingService.java"
+package com.booking.service;
+
+import com.booking.client.TravelPackageClient;
+import com.booking.client.UserClient;
+import com.booking.DTO.BookingDTO;
+import com.booking.DTO.TravelPackageDTO;
+import com.booking.DTO.UserDTO;
+import com.booking.entity.Booking;
+import com.booking.repository.BookingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class BookingService {
+
+    @Autowired
+    private BookingRepository bookingRepo;
+
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+
+    @Autowired
+    private UserClient userClient;
+
+    public BookingDTO createBooking(Long userId, Long packageId) {
+        TravelPackageDTO travelPackage = travelPackageClient.getPackageById(packageId);
+        UserDTO user = userClient.getUserById(userId);
+        
+
+        if (travelPackage == null || user == null) {
+            System.out.println("travelPackage: " + travelPackage);
+            System.out.println("user: " + user);
+            throw new RuntimeException("Invalid travel package or user");
+        }
+        Booking booking = new Booking();
+        booking.setUserId(userId);
+        booking.setPackageId(packageId);
+        booking.setTripStartDate(travelPackage.getTripStartDate());
+        booking.setTripEndDate(travelPackage.getTripEndDate());
+        booking.setStatus("CONFIRMED");
+
+        Booking savedBooking = bookingRepo.save(booking);
+
+        BookingDTO dto = new BookingDTO();
+        dto.setBookingId(savedBooking.getBookingId());
+        dto.setUserId(savedBooking.getUserId());
+        dto.setPackageId(savedBooking.getPackageId());
+        dto.setTripStartDate(savedBooking.getTripStartDate());
+        dto.setTripEndDate(savedBooking.getTripEndDate());
+        dto.setStatus(savedBooking.getStatus());
+        dto.setPaymentId(savedBooking.getPaymentId());
+
+        return dto;
+    }
+
+    public List<Booking> getAllBookings() {
+        return bookingRepo.findAll();
+    }
+
+    public Booking getBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+
+    public void deleteBooking(Long id) {
+        bookingRepo.deleteById(id);
+    }
+
+    public ResponseEntity<String> cancelBooking(Long bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.badRequest().body("Booking not found.");
+        }
+
+        LocalDate today = LocalDate.now();
+        if (booking.getTripStartDate().minusDays(7).isBefore(today)) {
+            return ResponseEntity.badRequest().body("Cancellation not allowed. Must cancel at least 7 days before departure.");
+        }
+
+        booking.setStatus("CANCELLED");
+        bookingRepo.save(booking);
+        return ResponseEntity.ok("Booking cancelled successfully.");
+    }
+}
