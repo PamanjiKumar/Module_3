@@ -1,0 +1,380 @@
+"Payment Conctroller"
+package com.booking.controller;
+
+import com.booking.dto.PaymentResponseDTO;
+import com.booking.entity.Payment;
+import com.booking.service.PaymentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+
+    @Autowired private PaymentService paymentService;
+
+    @PostMapping public PaymentResponseDTO process(@RequestBody Payment payment) {
+        Payment savedPayment = paymentService.processPayment(payment);
+        PaymentResponseDTO response = new PaymentResponseDTO();
+        response.setPaymentId(savedPayment.getPaymentId());
+        response.setUserId(savedPayment.getUserId());
+        response.setBookingId(savedPayment.getBookingId());
+        response.setAmount(savedPayment.getAmount());
+        response.setStatus(savedPayment.getStatus());
+        response.setPaymentMethod(savedPayment.getPaymentMethod());
+        response.setCurrency(savedPayment.getCurrency());
+        return response;
+    }
+
+    @GetMapping public List<Payment> getAll() { return paymentService.getAllPayments(); }
+    @GetMapping("/{id}") public Payment getById(@PathVariable Long id) { return paymentService.getPaymentById(id); }
+}
+
+
+"PaymentResponseDTO"
+package com.booking.dto;
+
+public class PaymentResponseDTO {
+    private Long paymentId;
+    private Long userId;
+    private Long bookingId;
+    private double amount;
+    private String status;
+    private String paymentMethod;
+    private String currency;
+
+    // Getters and Setters
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(Long paymentId) {
+        this.paymentId = paymentId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public Long getBookingId() {
+        return bookingId;
+    }
+
+    public void setBookingId(Long bookingId) {
+        this.bookingId = bookingId;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+}
+
+
+"Payment.java"(Entity)
+package com.booking.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+public class Payment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long paymentId;
+	private Long userId;
+    private Long bookingId;
+    private double amount;
+    private String status;
+    
+    @Column(nullable = false)
+    private String paymentMethod; // Should be "Credit Card" or "Debit Card"
+ 
+    private String currency;
+ 
+    @Transient
+    private String cardNumber;  // Not stored in DB
+ 
+    @Transient
+    private String cvv;			// Not stored in DB
+ 
+    @Transient
+    private String atmPin;		// Not stored in DB
+    
+    @Transient
+    private String expiryDate;	// Not stored in DB
+    
+    // Getters and Setters
+    
+	public Long getUserId() {
+		return userId;
+	}
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+	public Long getBookingId() {
+		return bookingId;
+	}
+	public void setBookingId(Long bookingId) {
+		this.bookingId = bookingId;
+	}
+	public double getAmount() {
+		return amount;
+	}
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public String getPaymentMethod() {
+		return paymentMethod;
+	}
+	public void setPaymentMethod(String paymentMethod) {
+		this.paymentMethod = paymentMethod;
+	}
+	public String getCurrency() {
+		return currency;
+	}
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+	public String getCardNumber() {
+		return cardNumber;
+	}
+	public void setCardNumber(String cardNumber) {
+		this.cardNumber = cardNumber;
+	}
+	public String getCvv() {
+		return cvv;
+	}
+	public void setCvv(String cvv) {
+		this.cvv = cvv;
+	}
+	public String getAtmPin() {
+		return atmPin;
+	}
+	public void setAtmPin(String atmPin) {
+		this.atmPin = atmPin;
+	}
+	public Long getPaymentId() {
+		return paymentId;
+	}
+	public void setPaymentId(Long paymentId) {
+		this.paymentId = paymentId;
+	}
+	public String getExpiryDate() {
+		return expiryDate;
+	}
+	public void setExpiryDate(String expiryDate) {
+		this.expiryDate = expiryDate;
+	}
+}
+
+"PaymentRepository"
+package com.booking.repository;
+ 
+import com.booking.entity.Payment;
+import org.springframework.data.jpa.repository.JpaRepository;
+ 
+public interface PaymentRepository extends JpaRepository<Payment, Long> {
+
+}
+
+
+"PaymentService"
+package com.booking.service;
+
+import com.booking.client.TravelPackageClient;
+import com.booking.dto.TravelPackageDTO;
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import com.booking.repository.BookingRepository;
+import com.booking.repository.PaymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class PaymentService {
+
+    @Autowired
+    private PaymentRepository paymentRepo;
+
+    @Autowired
+    private BookingRepository bookingRepo;
+
+    @Autowired
+    private NotificationService notificationService;
+    
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+
+    public Payment processPayment(Payment payment) {
+        if (!payment.getPaymentMethod().equalsIgnoreCase("Credit Card") &&
+            !payment.getPaymentMethod().equalsIgnoreCase("Debit Card")) {
+            throw new IllegalArgumentException("Only Credit Card or Debit Card are accepted.");
+        }
+
+        if (payment.getCardNumber() == null || !payment.getCardNumber().matches("\\d{16}")) {
+            throw new IllegalArgumentException("Invalid card number. Must be 16 digits.");
+        }
+
+        if (payment.getCvv() == null || !payment.getCvv().matches("\\d{3}")) {
+            throw new IllegalArgumentException("Invalid CVV. Must be 3 digits.");
+        }
+
+        if (payment.getAtmPin() == null || !payment.getAtmPin().matches("\\d{4}")) {
+            throw new IllegalArgumentException("Invalid ATM PIN. Must be 4 digits.");
+        }
+
+        // Expiry Date Format: MM/YY
+        if (payment.getExpiryDate() == null || !payment.getExpiryDate().matches("\\d{2}/\\d{2}")) {
+            throw new IllegalArgumentException("Expiry date must be in MM/YY format.");
+        }
+
+        String[] parts = payment.getExpiryDate().split("/");
+        int expMonth = Integer.parseInt(parts[0]);
+        int expYear = 2000 + Integer.parseInt(parts[1]); // e.g., "25" becomes 2025
+
+        if (expMonth < 1 || expMonth > 12) {
+            throw new IllegalArgumentException("Expiry month must be between 01 and 12.");
+        }
+
+        int currentMonth = LocalDate.now().getMonthValue();
+        int currentYear = LocalDate.now().getYear();
+
+        if (expYear < currentYear || (expYear == currentYear && expMonth < currentMonth)) {
+            throw new IllegalArgumentException("Card has expired.");
+        }
+
+        payment.setStatus("PAID");
+        Payment savedPayment = paymentRepo.save(payment);
+
+        // Fetch booking details using bookingId
+        Long bookingId = payment.getBookingId();
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        
+        if (booking != null) {
+        	TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        	if(payment.getAmount() != pkg.getPrice()) {
+        		throw new IllegalArgumentException("Amount does not match package price.");
+        	}
+        	
+        	notificationService.notifyCustomer(booking, savedPayment);
+            notificationService.notifyTravelAgent(booking, savedPayment);
+            
+        }
+
+        return savedPayment;
+    }
+
+    public List<Payment> getAllPayments() {
+        return paymentRepo.findAll();
+    }
+
+    public Payment getPaymentById(Long id) {
+        return paymentRepo.findById(id).orElse(null);
+    }
+}
+
+"Notification Service"
+package com.booking.service;
+
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationService {
+
+    @Autowired
+    private JavaMailSender mailSender;
+    private final String senderEmail = "indhaanman@gmail.com";
+    private final String customerEmail = "snehithkumar535@gmail.com";
+    private final String agentEmail = "padmajareddy630@gmail.com";
+
+    //Booking details are sent to customers through Email
+    public void notifyCustomer(Booking booking, Payment payment) {
+        String subject = "Your Travel Booking is Confirmed – Booking ID: " + booking.getBookingId();
+        String body = "Dear Customer,\n\n"
+                + "Thank you for booking your travel with us!\n\n"
+                + "Your booking has been successfully confirmed. Here are the details:\n\n"
+                + "- Booking ID: " + booking.getBookingId() + "\n"
+                + "- Package ID: " + booking.getPackageId() + "\n"
+                + "- Travel Dates: " + booking.getTripStartDate() + " to " + booking.getTripEndDate() + "\n"
+                + "- Payment Amount: " + payment.getAmount() + " "+ payment.getCurrency() + "\n"
+                + "- Payment Status: " + payment.getStatus() + "\n\n"
+                + "We look forward to providing you with a wonderful travel experience.\n\n"
+                + "Warm regards,\nTravel Booking Team";
+
+        sendEmail(customerEmail, subject, body);
+        System.out.println("Email is sent to " + customerEmail);
+    }
+
+    //Booking details are sent to travel agent through Email
+    public void notifyTravelAgent(Booking booking, Payment payment) {
+        String subject = "New Booking Received – Booking ID: " + booking.getBookingId();
+        String body = "Dear Travel Agent,\n\n"
+                + "A new booking has been successfully made. Please find the details below:\n\n"
+                + "- Booking ID: " + booking.getBookingId() + "\n"
+                + "- Customer ID: " + booking.getUserId() + "\n"
+                + "- Package ID: " + booking.getPackageId() + "\n"
+                + "- Travel Dates: " + booking.getTripStartDate() + " to " + booking.getTripEndDate() + "\n"
+                + "- Payment Amount: " + payment.getAmount() + " " + payment.getCurrency() + "\n"
+                + "- Payment Status: " + payment.getStatus() + "\n\n"
+                + "Please ensure all arrangements are in place for the customer's travel.\n\n"
+                + "Best regards,\nTravel Booking System";
+
+        sendEmail(agentEmail, subject, body);
+        System.out.println("Email is sent to " + agentEmail);
+    }
+
+    private void sendEmail(String to, String subject, String body) {
+        SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setFrom(senderEmail);
+        mail.setTo(to);
+        mail.setSubject(subject);
+        mail.setText(body);
+        mailSender.send(mail);
+    }
+}
