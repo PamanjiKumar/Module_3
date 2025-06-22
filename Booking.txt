@@ -526,3 +526,15 @@ public class BookingService {
     </build>
 
 </project>
+
+@PostMapping
+public ResponseEntity<BookingDTO> createBooking(@RequestBody Booking booking) {
+    System.out.println("🔥 POST /api/bookings called with userId: " + booking.getUserId() + " and packageId: " + booking.getPackageId());
+    try {
+        BookingDTO bookingDTO = bookingService.createBooking(booking);
+        return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+    } catch (Exception ex) {
+        ex.printStackTrace(); // Show full stack trace
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+    }
+}
