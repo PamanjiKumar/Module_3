@@ -37,7 +37,11 @@ package com.booking.controller;
 
 import com.booking.DTO.BookingDTO;
 import com.booking.entity.Booking;
+import com.booking.repository.BookingRepository;
 import com.booking.service.BookingService;
+import com.booking.DTO.TravelPackageDTO;
+import com.booking.response.ApiResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,17 +54,40 @@ import java.util.logging.Logger;
 @RequestMapping("/api/bookings")
 public class BookingController {
 
+	private BookingService service;
+    
     @Autowired
-    private BookingService bookingService;
+    private BookingRepository repository; //    new code for feign client purpose only
+    
+    public BookingController(BookingService service) {
+        this.service = service;
+    }
+    
 
     private static final Logger logger = Logger.getLogger(BookingController.class.getName());
 
-    @PostMapping("/user/{userId}/package/{packageId}")
-    public ResponseEntity<BookingDTO> createBooking(@PathVariable Long userId, @PathVariable Long packageId) {
-    	BookingDTO bookingDTO = bookingService.createBooking(userId, packageId); // Define bookingDTO here    	
-    	return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
-
+//    @PostMapping("/user/{userId}/package/{packageId}")
+//    public ResponseEntity<BookingDTO> createBooking(@PathVariable Long userId, @PathVariable Long packageId) {
+//        try {
+//            BookingDTO bookingDTO = bookingService.createBooking(userId, packageId); // Define bookingDTO here
+//            return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+//        } catch (RuntimeException ex) {
+//            logger.severe("Error creating booking: " + ex.getMessage());
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+//        }
+//    }
+    
+    @PostMapping
+    public ResponseEntity<BookingDTO> createBooking(@RequestBody Booking booking) {
+        try {
+            BookingDTO bookingDTO = bookingService.createBooking(booking);
+            return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(null); // Log the error instead in prod
+        }
     }
+
 
     @GetMapping
     public ResponseEntity<List<Booking>> getAllBookings() {
@@ -86,6 +113,38 @@ public class BookingController {
     public void delete(@PathVariable Long id) {
         bookingService.deleteBooking(id);
     }
+    
+//    @GetMapping("/packages/{id}")
+//    public ResponseEntity<?> getAllPackagesOfAgent(@PathVariable Long id) {
+//        UserService userService = new UserService(); // Create a local variable userService
+//        List<TravelPackageDTO> packages = userService.fetchAllPackagesByAgent(id); 
+//        return ResponseEntity.ok(packages);
+//    }
+
+    
+//    @GetMapping("/packages/{id}")
+//    public ResponseEntity<?> getAllPackagesOfAgent(@PathVariable Long id) {
+//        List<TravelPackageDTO> packages = userService.fetchAllPackagesByAgent(id); 
+//        return ResponseEntity.ok(packages);
+//    }
+    
+    
+    @GetMapping(produces = "application/json")
+    public ResponseEntity<ApiResponse> getAllPackages() {
+        List<TravelPackage> packages = service.getAllPackages();
+        return ResponseEntity.ok(new ApiResponse(true, "All packages retrieved ", packages));
+    }
+
+    
+    
+
+//    @GetMapping(value = "/{id}", produces = "application/json")
+//    public ResponseEntity<ApiResponse> getById(@PathVariable Long id) {
+//        TravelPackage travelPackage = service.getPackageById(id);
+//        return ResponseEntity.ok(new ApiResponse(true, "Package found", travelPackage));
+//    }
+
+  
 }
 
 
@@ -268,6 +327,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.logging.Logger;
 
 @Service
 public class BookingService {
@@ -281,16 +341,19 @@ public class BookingService {
     @Autowired
     private UserClient userClient;
 
+    private static final Logger logger = Logger.getLogger(BookingService.class.getName());
+
     public BookingDTO createBooking(Long userId, Long packageId) {
+        logger.info("Creating booking for userId: " + userId + " and packageId: " + packageId);
+        
         TravelPackageDTO travelPackage = travelPackageClient.getPackageById(packageId);
         UserDTO user = userClient.getUserById(userId);
-        
 
         if (travelPackage == null || user == null) {
-            System.out.println("travelPackage: " + travelPackage);
-            System.out.println("user: " + user);
+            logger.severe("Invalid travel package or user. travelPackage: " + travelPackage + ", user: " + user);
             throw new RuntimeException("Invalid travel package or user");
         }
+
         Booking booking = new Booking();
         booking.setUserId(userId);
         booking.setPackageId(packageId);
@@ -309,6 +372,7 @@ public class BookingService {
         dto.setStatus(savedBooking.getStatus());
         dto.setPaymentId(savedBooking.getPaymentId());
 
+        logger.info("Booking created successfully with bookingId: " + savedBooking.getBookingId());
         return dto;
     }
 
