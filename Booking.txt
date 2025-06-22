@@ -638,3 +638,12 @@ public class BookingController {
 
   
 
+{
+    "bookingId": 1,
+    "userId": 1,
+    "packageId": 1,
+    "tripStartDate": "2025-09-10",
+    "tripEndDate": "2025-09-15",
+    "status": "CONFIRMED",
+    "paymentId": null
+}
