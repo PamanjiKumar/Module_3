@@ -1877,3 +1877,12 @@ public interface TravelInsuranceClient {
     @PutMapping("/api/insurance/{insuranceId}/booking/{bookingId}")
     String updateInsuranceBookingId(@PathVariable("insuranceId") Long insuranceId, @PathVariable("bookingId") Long bookingId);
 }
+
+
+////////////
+if (insuranceId != null && insuranceId > 0) {
+        boolean exists = travelPackageClient.validateInsurance(insuranceId);
+        if (!exists) {
+            throw new IllegalArgumentException("Selected Insurance ID is invalid.");
+        }
+    }
