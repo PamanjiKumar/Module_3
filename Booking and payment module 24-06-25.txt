@@ -1487,3 +1487,16 @@ public class PaymentController {
     
     @GetMapping("/{id}") public Payment getById(@PathVariable Long id) { return paymentService.getPaymentById(id); }
 }
+
+
+
+
+    "bookingId" : 1,
+    "userId": 1,
+    "paymentMethod": "Debit Card",
+    "amount": 34249.05,
+    "cardNumber": "1111222233334444",
+    "atmPin": "0001",
+    "cvv": "001",
+    "expiryDate": "04/28"   
+}
