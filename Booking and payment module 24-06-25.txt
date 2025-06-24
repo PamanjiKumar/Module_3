@@ -1886,3 +1886,21 @@ if (insuranceId != null && insuranceId > 0) {
             throw new IllegalArgumentException("Selected Insurance ID is invalid.");
         }
     }
+
+/////////////////
+
+@GetMapping("/api/insurance/validate/{insuranceId}")
+boolean validateInsurance(@PathVariable("insuranceId") Long insuranceId);
+
+@GetMapping("/validate/{insuranceId}")
+public ResponseEntity<Boolean> validateInsurance(@PathVariable Long insuranceId) {
+    boolean exists = repo.existsById(insuranceId);
+    return ResponseEntity.ok(exists);
+}
+
+if (insuranceId != null && insuranceId > 0) {
+    boolean valid = travelInsuranceClient.validateInsurance(insuranceId);
+    if (!valid) {
+        throw new IllegalArgumentException("Invalid Insurance ID selected.");
+    }
+}
