@@ -1282,3 +1282,208 @@ public class InsuranceService {
 }
 
  
+package com.booking.service;
+ 
+import com.booking.client.TravelPackageClient;
+import com.booking.client.TravelInsuranceClient;
+import com.booking.dto.OfferDTO;
+import com.booking.dto.TravelPackageDTO;
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import com.booking.repository.BookingRepository;
+import com.booking.repository.PaymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+ 
+import java.time.LocalDate;
+import java.util.List;
+ 
+@Service
+public class PaymentService {
+ 
+    @Autowired
+    private PaymentRepository paymentRepo;
+ 
+    @Autowired
+    private BookingRepository bookingRepo;
+ 
+    @Autowired
+    private NotificationService notificationService;
+ 
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+ 
+    @Autowired
+    private TravelInsuranceClient travelInsuranceClient;
+ 
+    public Payment processPayment(Payment payment, String couponCodeApplied) {
+        
+        Long bookingId = payment.getBookingId();
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            throw new IllegalArgumentException("Booking with ID " + bookingId + " not found.");
+        }
+ 
+        // Fetch package details
+        TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        if (pkg == null) {
+            throw new IllegalArgumentException("Invalid package ID associated with booking.");
+        }
+ 
+        // Fetch insurance price for user
+        double insurancePrice = travelInsuranceClient.getInsurancePriceByUserId(booking.getUserId());
+        double packagePrice = pkg.getPrice();
+        double discountAmount = 0.0;
+ 
+     // Coupon logic via OfferDTO
+        if (couponCodeApplied != null && pkg.getOffer() != null) {
+            OfferDTO offer = pkg.getOffer();
+         
+            if (couponCodeApplied.equalsIgnoreCase(offer.getCouponCode()) && offer.isActive()) {
+                discountAmount = (packagePrice * offer.getDiscountPercentage()) / 100.0;
+                System.out.println("Coupon applied. Discount amount: " + discountAmount);
+            }
+        }
+        
+        double expectedTotal = packagePrice + insurancePrice - discountAmount;
+ 
+        if (payment.getAmount() != expectedTotal) {
+            throw new IllegalArgumentException("Payment amount mismatch. Expected: " + expectedTotal);
+        }
+ 
+        // Validate Card Details
+        if (!payment.getPaymentMethod().equalsIgnoreCase("Credit Card") &&
+            !payment.getPaymentMethod().equalsIgnoreCase("Debit Card")) {
+            throw new IllegalArgumentException("Only Credit Card or Debit Card accepted.");
+        }
+ 
+        if (payment.getCardNumber() == null || !payment.getCardNumber().matches("\\d{16}")) {
+            throw new IllegalArgumentException("Invalid card number.");
+        }
+ 
+        if (payment.getCvv() == null || !payment.getCvv().matches("\\d{3}")) {
+            throw new IllegalArgumentException("Invalid CVV.");
+        }
+ 
+        if (payment.getAtmPin() == null || !payment.getAtmPin().matches("\\d{4}")) {
+            throw new IllegalArgumentException("Invalid ATM PIN.");
+        }
+ 
+        if (payment.getExpiryDate() == null || !payment.getExpiryDate().matches("\\d{2}/\\d{2}")) {
+            throw new IllegalArgumentException("Expiry date format invalid.");
+        }
+ 
+        String[] parts = payment.getExpiryDate().split("/");
+        int expMonth = Integer.parseInt(parts[0]);
+        int expYear = 2000 + Integer.parseInt(parts[1]);
+ 
+        int currentMonth = LocalDate.now().getMonthValue();
+        int currentYear = LocalDate.now().getYear();
+ 
+        if (expMonth < 1 || expMonth > 12 || expYear < currentYear ||
+           (expYear == currentYear && expMonth < currentMonth)) {
+            throw new IllegalArgumentException("Card has expired.");
+        }
+ 
+        // Save payment
+        payment.setStatus("PAID");
+        Payment savedPayment = paymentRepo.save(payment);
+ 
+        // Update booking with payment ID
+        booking.setPaymentId(savedPayment.getPaymentId());
+        bookingRepo.save(booking);
+ 
+        // Update insurance record with booking ID if insurance selected
+        if (insurancePrice > 0.0) {
+            travelInsuranceClient.updateInsuranceBookingId(booking.getUserId(), booking.getBookingId());
+        }
+ 
+        // Send Notifications
+        notificationService.notifyCustomer(booking, savedPayment);
+        notificationService.notifyTravelAgent(booking, savedPayment);
+ 
+        return savedPayment;
+    }
+    
+    public double calculateExpectedTotal(Long bookingId, String couponCodeApplied) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) throw new IllegalArgumentException("Booking not found");
+     
+        TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        if (pkg == null) throw new IllegalArgumentException("Package not found");
+     
+        double packagePrice = pkg.getPrice();
+        double insurancePrice = travelInsuranceClient.getInsurancePriceByUserId(booking.getUserId());
+        double discountAmount = 0.0;
+     
+        if (couponCodeApplied != null && pkg.getOffer() != null) {
+            OfferDTO offer = pkg.getOffer();
+            if (couponCodeApplied.equalsIgnoreCase(offer.getCouponCode()) && offer.isActive()) {
+                discountAmount = (packagePrice * offer.getDiscountPercentage()) / 100.0;
+            }
+        }
+     
+        return packagePrice + insurancePrice - discountAmount;
+    }
+    
+    public List<Payment> getAllPayments() {
+        return paymentRepo.findAll();
+    }
+ 
+    public Payment getPaymentById(Long id) {
+        return paymentRepo.findById(id).orElse(null);
+    }
+}
+ 
+package com.booking.controller;
+
+import com.booking.dto.PaymentResponseDTO;
+import com.booking.entity.Payment;
+import com.booking.service.PaymentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+
+    @Autowired private PaymentService paymentService;
+
+    // Process payment with optional coupon code
+    @PostMapping
+    public PaymentResponseDTO process(
+            @RequestBody Payment payment,
+            @RequestParam(required = false) String couponCode) {
+ 
+        Payment savedPayment = paymentService.processPayment(payment, couponCode);
+ 
+        PaymentResponseDTO response = new PaymentResponseDTO();
+        response.setPaymentId(savedPayment.getPaymentId());
+        response.setUserId(savedPayment.getUserId());
+        response.setBookingId(savedPayment.getBookingId());
+        response.setAmount(savedPayment.getAmount());
+        response.setStatus(savedPayment.getStatus());
+        response.setPaymentMethod(savedPayment.getPaymentMethod());
+        response.setCurrency(savedPayment.getCurrency());
+ 
+        return response;
+    }
+    
+ // Show total payable before actual payment
+    @GetMapping("/expected-total")
+    public Map<String, Double> getExpectedTotal(
+            @RequestParam Long bookingId,
+            @RequestParam(required = false) String couponCode) {
+     
+        double total = paymentService.calculateExpectedTotal(bookingId, couponCode);
+        return Collections.singletonMap("totalPayable", total);
+    }
+    
+    @GetMapping public List<Payment> getAll() { return paymentService.getAllPayments(); }
+    
+    @GetMapping("/{id}") public Payment getById(@PathVariable Long id) { return paymentService.getPaymentById(id); }
+}
