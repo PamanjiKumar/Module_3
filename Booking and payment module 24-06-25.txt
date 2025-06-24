@@ -1500,3 +1500,19 @@ public class PaymentController {
     "cvv": "001",
     "expiryDate": "04/28"   
 }
+
+//////////
+
+[
+    {
+        "insuranceId": 1,
+        "userId": 1,
+        "bookingId": null,
+        "coverageType": "STANDARD",
+        "coverageDetails": "Includes medical coverage, trip cancellation, lost baggage, and flight delay protection.",
+        "price": 1000.0,
+        "claimableAmount": 200000.0,
+        "issuanceStatus": "PENDING",
+        "createdAt": "2025-06-25T00:19:46.295305"
+    }
+]
