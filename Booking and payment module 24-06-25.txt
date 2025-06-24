@@ -1516,3 +1516,364 @@ public class PaymentController {
         "createdAt": "2025-06-25T00:19:46.295305"
     }
 ]
+
+//////////////
+package com.booking.entity;
+
+import java.time.LocalDate;
+import jakarta.persistence.*;
+ 
+@Entity
+public class Booking {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long bookingId;
+    private Long userId;
+    private Long packageId;
+
+
+    @Column(name= "trip_start_date")
+    private LocalDate tripStartDate;
+    @Column(name= "trip_end_date")
+    private LocalDate tripEndDate;
+
+
+    private String status;
+    private Long paymentId;
+ 
+    // Getters and Setters
+    public Long getBookingId() {
+        return bookingId;
+    }
+ 
+    public void setBookingId(Long bookingId) {
+        this.bookingId = bookingId;
+    }
+ 
+    public Long getUserId() {
+        return userId;
+    }
+ 
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+ 
+    public Long getPackageId() {
+        return packageId;
+    }
+ 
+    public void setPackageId(Long packageId) {
+        this.packageId = packageId;
+    }
+	public LocalDate getTripStartDate() {
+		return tripStartDate;
+	}
+ 
+	public void setTripStartDate(LocalDate tripStartDate) {
+		this.tripStartDate = tripStartDate;
+	}
+ 
+	public LocalDate getTripEndDate() {
+		return tripEndDate;
+	}
+ 
+	public void setTripEndDate(LocalDate tripEndDate) {
+		this.tripEndDate = tripEndDate;
+	}
+
+    public String getStatus() {
+        return status;
+    }
+ 
+    public void setStatus(String status) {
+        this.status = status;
+    }
+ 
+	public Long getPaymentId() {
+		return paymentId;
+	}
+ 
+	public void setPaymentId(Long paymentId) {
+		this.paymentId = paymentId;
+	}
+ 
+}
+
+package com.booking.service;
+
+import com.booking.client.TravelPackageClient;
+import com.booking.client.UserClient;
+import com.booking.dto.BookingDTO;
+import com.booking.dto.TravelPackageDTO;
+import com.booking.dto.UserDTO;
+import com.booking.entity.Booking;
+import com.booking.repository.BookingRepository;
+//import com.booking.response.ApiResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.logging.Logger;
+
+@Service
+public class BookingService {
+    @Autowired
+    private BookingRepository bookingRepo;
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+    @Autowired
+    private UserClient userClient;
+    private static final Logger logger = Logger.getLogger(BookingService.class.getName());
+    public BookingDTO createBooking(Booking bookingRequest) {
+        Long userId = bookingRequest.getUserId();
+        Long packageId = bookingRequest.getPackageId();
+logger.info("Creating booking for userId: " + userId + " and packageId: " + packageId);
+        // Validate User
+        UserDTO user = userClient.getCustomerById(userId);
+        if (user == null || !"CUSTOMER".equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("User is not a valid CUSTOMER.");
+        }
+        // Validate Package
+        TravelPackageDTO travelPackage = travelPackageClient.getPackageById(packageId);
+        if (travelPackage == null) {
+            throw new IllegalArgumentException("Invalid travel package ID.");
+        }
+        // Create and save booking
+        Booking booking = new Booking();
+        booking.setUserId(userId);
+        booking.setPackageId(packageId);
+        booking.setTripStartDate(travelPackage.getTripStartDate());
+        booking.setTripEndDate(travelPackage.getTripEndDate());
+        booking.setStatus("CONFIRMED");
+        Booking savedBooking = bookingRepo.save(booking);
+        // Build response DTO
+        BookingDTO dto = new BookingDTO();
+        dto.setBookingId(savedBooking.getBookingId());
+        dto.setUserId(userId);
+        dto.setPackageId(packageId);
+        dto.setTripStartDate(savedBooking.getTripStartDate());
+        dto.setTripEndDate(savedBooking.getTripEndDate());
+        dto.setStatus(savedBooking.getStatus());
+        dto.setPaymentId(savedBooking.getPaymentId());
+logger.info("Booking created successfully with bookingId: " + savedBooking.getBookingId());
+        return dto;
+    }
+    public List<Booking> getAllBookings() {
+        return bookingRepo.findAll();
+    }
+    
+    public Booking getBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+    
+    public Booking getInternalBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+    
+    public void deleteBooking(Long id) {
+        bookingRepo.deleteById(id);
+    }
+    
+    public ResponseEntity<String> cancelBooking(Long bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.badRequest().body("Booking not found.");
+        }
+        LocalDate today = LocalDate.now();
+        if (booking.getTripStartDate().minusDays(7).isBefore(today)) {
+            return ResponseEntity.badRequest().body("Cancellation not allowed. Must cancel at least 7 days before departure.");
+        }
+        booking.setStatus("CANCELLED");
+        bookingRepo.save(booking);
+        return ResponseEntity.ok("Booking cancelled successfully.");
+    }
+
+    // User module to return Bookings by UserId
+    public List<Booking> getBookingsByUserId(Long userId) {
+    	return bookingRepo.findByUserId(userId);
+    }
+
+    // Rating and reviews module to validate booking
+    public boolean hasUserCompletedPackage(Long userId, String packageId) {
+        List<Booking> bookings = bookingRepo.findByUserId(userId);
+        LocalDate today = LocalDate.now();
+        return bookings.stream()
+            .anyMatch(b ->
+                String.valueOf(b.getPackageId()).equals(packageId) &&
+                "CONFIRMED".equalsIgnoreCase(b.getStatus()) &&
+                !b.getTripEndDate().isAfter(today) // includes today
+            );
+    }
+
+}
+package com.booking.service;
+ 
+import com.booking.client.TravelPackageClient;
+import com.booking.client.TravelInsuranceClient;
+import com.booking.dto.OfferDTO;
+import com.booking.dto.TravelPackageDTO;
+import com.booking.entity.Booking;
+import com.booking.entity.Payment;
+import com.booking.repository.BookingRepository;
+import com.booking.repository.PaymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+ 
+import java.time.LocalDate;
+import java.util.List;
+ 
+@Service
+public class PaymentService {
+ 
+    @Autowired
+    private PaymentRepository paymentRepo;
+ 
+    @Autowired
+    private BookingRepository bookingRepo;
+ 
+    @Autowired
+    private NotificationService notificationService;
+ 
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+ 
+    @Autowired
+    private TravelInsuranceClient travelInsuranceClient;
+ 
+    public Payment processPayment(Payment payment, String couponCodeApplied) {
+        
+        Long bookingId = payment.getBookingId();
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            throw new IllegalArgumentException("Booking with ID " + bookingId + " not found.");
+        }
+ 
+        // Fetch package details
+        TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        if (pkg == null) {
+            throw new IllegalArgumentException("Invalid package ID associated with booking.");
+        }
+ 
+        // Fetch insurance price for user
+        double insurancePrice = travelInsuranceClient.getInsurancePriceByUserId(booking.getUserId());
+        double packagePrice = pkg.getPrice();
+        double discountAmount = 0.0;
+ 
+     // Coupon logic via OfferDTO
+        if (couponCodeApplied != null && pkg.getOffer() != null) {
+            OfferDTO offer = pkg.getOffer();
+         
+            if (couponCodeApplied.equalsIgnoreCase(offer.getCouponCode()) && offer.isActive()) {
+                discountAmount = (packagePrice * offer.getDiscountPercentage()) / 100.0;
+                System.out.println("Coupon applied. Discount amount: " + discountAmount);
+            }
+        }
+        
+        double expectedTotal = packagePrice + insurancePrice - discountAmount;
+ 
+        if (payment.getAmount() != expectedTotal) {
+            throw new IllegalArgumentException("Payment amount mismatch. Expected: " + expectedTotal);
+        }
+ 
+        // Validate Card Details
+        if (!payment.getPaymentMethod().equalsIgnoreCase("Credit Card") &&
+            !payment.getPaymentMethod().equalsIgnoreCase("Debit Card")) {
+            throw new IllegalArgumentException("Only Credit Card or Debit Card accepted.");
+        }
+ 
+        if (payment.getCardNumber() == null || !payment.getCardNumber().matches("\\d{16}")) {
+            throw new IllegalArgumentException("Invalid card number.");
+        }
+ 
+        if (payment.getCvv() == null || !payment.getCvv().matches("\\d{3}")) {
+            throw new IllegalArgumentException("Invalid CVV.");
+        }
+ 
+        if (payment.getAtmPin() == null || !payment.getAtmPin().matches("\\d{4}")) {
+            throw new IllegalArgumentException("Invalid ATM PIN.");
+        }
+ 
+        if (payment.getExpiryDate() == null || !payment.getExpiryDate().matches("\\d{2}/\\d{2}")) {
+            throw new IllegalArgumentException("Expiry date format invalid.");
+        }
+ 
+        String[] parts = payment.getExpiryDate().split("/");
+        int expMonth = Integer.parseInt(parts[0]);
+        int expYear = 2000 + Integer.parseInt(parts[1]);
+ 
+        int currentMonth = LocalDate.now().getMonthValue();
+        int currentYear = LocalDate.now().getYear();
+ 
+        if (expMonth < 1 || expMonth > 12 || expYear < currentYear ||
+           (expYear == currentYear && expMonth < currentMonth)) {
+            throw new IllegalArgumentException("Card has expired.");
+        }
+ 
+        // Save payment
+        payment.setStatus("PAID");
+        Payment savedPayment = paymentRepo.save(payment);
+ 
+        // Update booking with payment ID
+        booking.setPaymentId(savedPayment.getPaymentId());
+        bookingRepo.save(booking);
+ 
+        // Update insurance record with booking ID if insurance selected
+        if (insurancePrice > 0.0) {
+            travelInsuranceClient.updateInsuranceBookingId(booking.getUserId(), booking.getBookingId());
+        }
+ 
+        // Send Notifications
+        notificationService.notifyCustomer(booking, savedPayment);
+        notificationService.notifyTravelAgent(booking, savedPayment);
+ 
+        return savedPayment;
+    }
+    
+    public double calculateExpectedTotal(Long bookingId, String couponCodeApplied) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) throw new IllegalArgumentException("Booking not found");
+     
+        TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+        if (pkg == null) throw new IllegalArgumentException("Package not found");
+     
+        double packagePrice = pkg.getPrice();
+        double insurancePrice = travelInsuranceClient.getInsurancePriceByUserId(booking.getUserId());
+        double discountAmount = 0.0;
+     
+        if (couponCodeApplied != null && pkg.getOffer() != null) {
+            OfferDTO offer = pkg.getOffer();
+            if (couponCodeApplied.equalsIgnoreCase(offer.getCouponCode()) && offer.isActive()) {
+                discountAmount = (packagePrice * offer.getDiscountPercentage()) / 100.0;
+            }
+        }
+     
+        return packagePrice + insurancePrice - discountAmount;
+    }
+    
+    public List<Payment> getAllPayments() {
+        return paymentRepo.findAll();
+    }
+ 
+    public Payment getPaymentById(Long id) {
+        return paymentRepo.findById(id).orElse(null);
+    }
+}
+ package com.booking.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+
+import java.util.List;
+ 
+@FeignClient(name = "TravelInsuranceService")
+public interface TravelInsuranceClient {
+ 
+	@GetMapping("/api/insurance/price/{userId}")
+    double getInsurancePriceByUserId(@PathVariable("userId") Long userId);
+ 
+    @PutMapping("/api/insurance/{insuranceId}/booking/{bookingId}")
+    String updateInsuranceBookingId(@PathVariable("insuranceId") Long insuranceId, @PathVariable("bookingId") Long bookingId);
+}
