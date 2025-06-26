@@ -1033,3 +1033,19 @@ public double getInsurancePriceByUserId(Long userId) {
         logger.info("Returning insurance price {} for insuranceId {}", insurance.getPrice(), insurance.getInsuranceId());
         return insurance.getPrice();
     }
+
+///////////
+@GetMapping("/price/insurance/{insuranceId}")
+public ResponseEntity<Double> getInsurancePriceByInsuranceId(@PathVariable Long insuranceId) {
+    logger.info("GET /api/insurance/price/insurance/{} - Fetching insurance price by insuranceId", insuranceId);
+
+    double price = service.getInsurancePriceByInsuranceId(insuranceId);
+
+    if (price <= 0) {
+        logger.warn("No insurance found for insuranceId: {}", insuranceId);
+        return ResponseEntity.notFound().build();
+    }
+
+    logger.info("Insurance price for insuranceId {} is {}", insuranceId, price);
+    return ResponseEntity.ok(price);
+}
