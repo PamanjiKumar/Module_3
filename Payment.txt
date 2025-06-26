@@ -1013,3 +1013,23 @@ public interface TravelInsuranceClient {
         return ResponseEntity.ok(price);
     }
     
+
+public double getInsurancePriceByUserId(Long userId) {
+        logger.info("Fetching insurance price for userId: {}", userId);
+
+        List<Insurance> insurances = repo.findByUserId(userId);
+        if (insurances.isEmpty()) {
+            logger.warn("No insurance found for userId {}", userId);
+            return 0.0;
+        }
+
+        Insurance insurance = insurances.get(0);
+
+        if ("CANCELLED".equalsIgnoreCase(insurance.getIssuanceStatus())) {
+            logger.info("Insurance is cancelled for userId {}", userId);
+            return 0.0;
+        }
+
+        logger.info("Returning insurance price {} for insuranceId {}", insurance.getPrice(), insurance.getInsuranceId());
+        return insurance.getPrice();
+    }
