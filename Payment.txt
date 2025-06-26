@@ -996,3 +996,20 @@ public interface TravelInsuranceClient {
     @PutMapping("/api/insurance/{insuranceId}/booking/{bookingId}")
     String updateInsuranceBookingId(@PathVariable("insuranceId") Long insuranceId, @PathVariable("bookingId") Long bookingId);
 }
+
+///////////
+@GetMapping("/price/{userId}")
+    public ResponseEntity<Double> getInsurancePriceByUserId(@PathVariable Long userId) {
+    logger.info("GET /api/insurance/price/{} - Fetching insurance price", userId);
+     
+        double price = service.getInsurancePriceByUserId(userId);
+     
+        if (price <= 0) {
+            logger.warn("No insurance found for userId: {}", userId);
+            return ResponseEntity.notFound().build();
+        }
+     
+    logger.info("Insurance price for userId {} is {}", userId, price);
+        return ResponseEntity.ok(price);
+    }
+    
