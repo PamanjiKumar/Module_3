@@ -1,0 +1,388 @@
+"Insurance Controller"
+package com.example.travelinsuranceservice.controller;
+ 
+import com.example.travelinsuranceservice.dto.*;
+import com.example.travelinsuranceservice.model.CoverageType;
+import com.example.travelinsuranceservice.model.Insurance;
+import com.example.travelinsuranceservice.service.InsuranceService;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+ 
+import java.util.*;
+import java.util.stream.Collectors;
+ 
+/**
+ * Controller exposing REST end-points for insurance operations.
+ */
+@RestController
+@RequestMapping("/api/insurance")
+public class InsuranceController {
+ 
+    private static final Logger logger = LoggerFactory.getLogger(InsuranceController.class);
+ 
+    @Autowired
+    private InsuranceService service;
+    
+ 
+ 
+    /**
+     * POST /api/insurance
+     * Creates new insurance with fixed status "ISSUED".
+     */
+    @PostMapping
+    public ResponseEntity<Insurance> createInsurance(@Valid @RequestBody InsuranceRequestDTO dto) {
+        logger.info("POST /api/insurance - creating insurance");
+        Insurance insurance = service.createInsurance(dto);
+        return new ResponseEntity<>(insurance, HttpStatus.CREATED);
+    }
+ 
+ 
+    /**
+     * GET /api/insurance/user/{userId}
+     * Fetches insurance policies for a given user.
+     */
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Insurance>> getByUser(@PathVariable Long userId) {
+        logger.info("GET /api/insurance/user/{} - Fetching insurance list", userId);
+        return ResponseEntity.ok(service.getUserInsurance(userId));
+    }
+    
+   
+ 
+    /**
+     * GET /api/insurance/coverage-plans
+     * Returns available coverage options (name, price, details, claim).
+     */
+    @GetMapping("/coverage-plans")
+    public ResponseEntity<List<CoveragePlanDTO>> getCoveragePlans() {
+        logger.info("GET /api/insurance/coverage-plans - Fetching all coverage plans");
+ 
+        List<CoveragePlanDTO> plans = Arrays.stream(CoverageType.values())
+                .map(type -> new CoveragePlanDTO(
+                        type.name(),
+                        type.getCoverageDetails(),
+                        type.getPrice(),
+                        type.getClaimableAmount()))
+                .collect(Collectors.toList());
+ 
+        return ResponseEntity.ok(plans);
+    }
+    
+    @PutMapping("/{insuranceId}/booking/{bookingId}")
+    public ResponseEntity<String> updateInsuranceBookingId(
+            @PathVariable Integer insuranceId,
+            @PathVariable Long bookingId) {
+     
+        logger.info("PUT /api/insurance/{}/booking/{} - Linking insurance to booking", insuranceId, bookingId);
+     
+        String result = service.updateBookingIdInInsurance(insuranceId, bookingId);
+     
+        return ResponseEntity.ok(result);
+    }
+
+     
+     
+    
+    /**
+    * GET /api/insurance/price/{userId}
+    * Fetch insurance price selected by userId
+    */
+    @GetMapping("/price/{userId}")
+    public ResponseEntity<Double> getInsurancePriceByUserId(@PathVariable Long userId) {
+    logger.info("GET /api/insurance/price/{} - Fetching insurance price", userId);
+     
+        double price = service.getInsurancePriceByUserId(userId);
+     
+        if (price <= 0) {
+            logger.warn("No insurance found for userId: {}", userId);
+            return ResponseEntity.notFound().build();
+        }
+     
+    logger.info("Insurance price for userId {} is {}", userId, price);
+        return ResponseEntity.ok(price);
+    }
+    /**
+     * GET /api/insurance/price/{insuranceId}
+     * Fetch insurance price selected by insuranceId
+     */
+    @GetMapping("/price/insurance/{insuranceId}")
+    public ResponseEntity<Double> getInsurancePriceByInsuranceId(@PathVariable Integer insuranceId) {
+        logger.info("GET /api/insurance/price/insurance/{} - Fetching insurance price by insuranceId", insuranceId);
+
+        double price = service.getInsurancePriceByInsuranceId(insuranceId);
+
+        if (price <= 0) {
+            logger.warn("No insurance found for insuranceId: {}", insuranceId);
+            return ResponseEntity.notFound().build();
+        }
+
+        logger.info("Insurance price for insuranceId {} is {}", insuranceId, price);
+        return ResponseEntity.ok(price);
+    }
+    
+    @GetMapping("/validate/{insuranceId}")
+    public ResponseEntity<Boolean> validateInsurance(@PathVariable Integer insuranceId) {
+        boolean exists = service.validateInsuranceId(insuranceId);
+        return ResponseEntity.ok(exists);
+    }
+
+}
+
+ 
+"Insurance Service"
+package com.example.travelinsuranceservice.service;
+
+import com.example.travelinsuranceservice.client.BookingClient;
+import com.example.travelinsuranceservice.client.UserClient;
+import com.example.travelinsuranceservice.dto.BookingDTO;
+import com.example.travelinsuranceservice.dto.InsuranceRequestDTO;
+import com.example.travelinsuranceservice.exception.InvalidInputException;
+import com.example.travelinsuranceservice.exception.ResourceNotFoundException;
+import com.example.travelinsuranceservice.model.CoverageType;
+import com.example.travelinsuranceservice.model.Insurance;
+import com.example.travelinsuranceservice.repository.InsuranceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * Service class handling business logic for Insurance module.
+ */
+@Service
+public class InsuranceService {
+
+    private static final Logger logger = LoggerFactory.getLogger(InsuranceService.class);
+
+    @Autowired
+    private InsuranceRepository repo;
+
+    @Autowired
+    private UserClient userClient;
+
+    @Autowired
+    private BookingClient bookingClient;
+
+    /**
+     * Creates new insurance with default status "PENDING".
+     * Called when user selects insurance during booking.
+     */
+    public Insurance createInsurance(InsuranceRequestDTO dto) {
+        logger.info("Creating insurance for userId: {}", dto.getUserId());
+
+        if (userClient.getUserById(dto.getUserId()) == null) {
+            logger.error("Invalid user ID: {}", dto.getUserId());
+            throw new InvalidInputException("Invalid user ID: " + dto.getUserId());
+        }
+
+        Insurance insurance = new Insurance();
+        insurance.setUserId(dto.getUserId());
+        insurance.setCoverageType(CoverageType.valueOf(dto.getCoverageType().toUpperCase()));
+
+        // issuanceStatus = "PENDING" is default in entity
+
+        Insurance saved = repo.save(insurance);
+        logger.info("Insurance created with ID: {}", saved.getInsuranceId());
+        return saved;
+    }
+
+    /**
+     * Returns all insurance records for the given userId.
+     */
+    public List<Insurance> getUserInsurance(Long userId) {
+        logger.info("Fetching insurance list for userId: {}", userId);
+        return repo.findByUserId(userId);
+    }
+
+    /**
+     * Returns the price of the first valid insurance selected by the user.
+     * Used by Booking module to calculate total cost.
+     */
+    public double getInsurancePriceByUserId(Long userId) {
+        logger.info("Fetching insurance price for userId: {}", userId);
+
+        List<Insurance> insurances = repo.findByUserId(userId);
+        if (insurances.isEmpty()) {
+            logger.warn("No insurance found for userId {}", userId);
+            return 0.0;
+        }
+
+        Insurance insurance = insurances.get(0);
+
+        if ("CANCELLED".equalsIgnoreCase(insurance.getIssuanceStatus())) {
+            logger.info("Insurance is cancelled for userId {}", userId);
+            return 0.0;
+        }
+
+        logger.info("Returning insurance price {} for insuranceId {}", insurance.getPrice(), insurance.getInsuranceId());
+        return insurance.getPrice();
+    }
+    
+    public double getInsurancePriceByInsuranceId(Integer insuranceId) {
+        logger.info("Fetching insurance price for insuranceId: {}", insuranceId);
+
+        Insurance insurance = repo.findById(insuranceId).orElse(null);
+
+        if (insurance == null) {
+            logger.warn("No insurance found for insuranceId {}", insuranceId);
+            return 0.0;
+        }
+
+        if ("CANCELLED".equalsIgnoreCase(insurance.getIssuanceStatus())) {
+            logger.info("Insurance is cancelled for insuranceId {}", insuranceId);
+            return 0.0;
+        }
+
+        logger.info("Returning insurance price {} for insuranceId {}", insurance.getPrice(), insuranceId);
+        return insurance.getPrice();
+    }
+
+    /**
+     * Called by Booking module after booking/payment is successful.
+     * Updates bookingId and sets issuanceStatus = "ISSUED".
+     */
+    public String updateBookingIdInInsurance(Integer insuranceId, Long bookingId) {
+        Insurance insurance = repo.findById(insuranceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Insurance not found"));
+
+        BookingDTO booking = bookingClient.getBookingById(bookingId);
+        if (booking == null) {
+            throw new InvalidInputException("Invalid booking ID: " + bookingId);
+        }
+
+        insurance.setBookingId(bookingId);
+        insurance.setIssuanceStatus("ISSUED");
+
+        repo.save(insurance);
+
+        return "Insurance linked to booking successfully.";
+    }
+
+    /**
+     * Validates if the given insurance ID exists in the repository.
+     */
+    public boolean validateInsuranceId(Integer insuranceId) {
+        return repo.existsByInsuranceId(insuranceId);
+    }
+}
+
+
+"Insurance repo"
+package com.example.travelinsuranceservice.repository;
+ 
+import com.example.travelinsuranceservice.model.AssistanceRequest;
+import org.springframework.data.jpa.repository.JpaRepository;
+ 
+import java.util.List;
+ 
+/**
+ * Repository interface for AssistanceRequest entity.
+ * Provides CRUD operations and custom method to search by userId.
+ */
+public interface AssistanceRequestRepository extends JpaRepository<AssistanceRequest, Integer> {
+ 
+    /**
+     * Returns all assistance requests submitted by a specific user.
+     *
+     * @param userId ID of the user
+     * @return List of AssistanceRequest objects
+     */
+    List<AssistanceRequest> findByUserId(Long userId);
+}
+
+"insurance enity"
+package com.example.travelinsuranceservice.model;
+ 
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+ 
+import java.time.LocalDateTime;
+ 
+/**
+ * Entity representing an insurance policy for travel booking.
+ */
+@Entity
+@Data
+public class Insurance {
+ 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer insuranceId;
+ 
+    @NotNull(message = "User ID cannot be null")
+    private Long userId;
+ 
+    // Booking ID will be updated later from the Booking module
+    @Column(name="booking_id")
+    private Long bookingId;
+ 
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "Coverage type is required")
+    private CoverageType coverageType;
+ 
+    // Fields populated based on coverageType at creation
+    private String coverageDetails;
+    private Double price;
+    private Double claimableAmount;
+ 
+    // Default Status Pending
+    @Column(nullable=false)
+    private String issuanceStatus = "PENDING";
+    
+    @Column(nullable=false)
+    private String provider="Secure Travel Insurance Co.";
+ 
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+ 
+    /**
+     * Automatically sets coverageDetails, price, and claimableAmount
+     * before saving to DB based on the selected coverageType.
+     */
+    @PrePersist
+    public void setDefaults() {
+        if (coverageType != null) {
+            this.coverageDetails = coverageType.getCoverageDetails();
+            this.price = coverageType.getPrice();
+            this.claimableAmount = coverageType.getClaimableAmount();
+        }
+    }
+}
+
+"insurancerequestDTO"
+package com.example.travelinsuranceservice.dto;
+ 
+import lombok.Data;
+ 
+/**
+* DTO to expose insurance coverage plans to Booking module.
+*/
+@Data
+public class InsuranceRequestDTO {
+   
+    private Integer insuranceId;
+ 
+    private Long userId;
+ 
+    private Long bookingId;  // To be updated after successful payment
+ 
+    private String coverageDetails;
+    
+    private String coverageType;
+ 
+    private double price;
+ 
+    private String provider;
+ 
+    private String status;  // e.g., "PENDING", "ISSUED"
+}
+ 
+ 
