@@ -1049,3 +1049,22 @@ public ResponseEntity<Double> getInsurancePriceByInsuranceId(@PathVariable Long 
     logger.info("Insurance price for insuranceId {} is {}", insuranceId, price);
     return ResponseEntity.ok(price);
 }
+
+public double getInsurancePriceByInsuranceId(Long insuranceId) {
+    logger.info("Fetching insurance price for insuranceId: {}", insuranceId);
+
+    Insurance insurance = repo.findById(insuranceId).orElse(null);
+
+    if (insurance == null) {
+        logger.warn("No insurance found for insuranceId {}", insuranceId);
+        return 0.0;
+    }
+
+    if ("CANCELLED".equalsIgnoreCase(insurance.getIssuanceStatus())) {
+        logger.info("Insurance is cancelled for insuranceId {}", insuranceId);
+        return 0.0;
+    }
+
+    logger.info("Returning insurance price {} for insuranceId {}", insurance.getPrice(), insuranceId);
+    return insurance.getPrice();
+}
