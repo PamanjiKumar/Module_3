@@ -1082,4 +1082,24 @@ eureka.client.fetch-registry=true
 logging.level.root=DEBUG
 logging.level.org.springframework.web=DEBUG
 
+post http://localhost:8080/api/payments
+input 
+{
+    "userId":2,
+    "bookingId":3,
+    "amount":33749.05,
+    "paymentMethod": "Debit Card",
+    "currency":"INR",
+    "cardNumber": "1111222233334444",
+    "atmPin": "0001",
+    "cvv": "001",
+    "expiryDate": "04/28"   
+}
 
+response
+{
+    "timestamp": "2025-06-26T19:54:29.532+00:00",
+    "status": 500,
+    "error": "Internal Server Error",
+    "path": "/api/payments"
+}
