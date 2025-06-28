@@ -1502,3 +1502,28 @@ public class PaymentService {
         return paymentRepo.findById(id).orElse(null);
     }
 }
+
+//////////28/06/2025
+
+POST http://localhost:8080/api/payments
+postamn input 
+Body raw JSON
+{
+    "userId":4,
+    "bookingId":5,
+    "amount":50999.0,
+    "paymentMethod": "Debit Card",
+    "currency":"INR",
+    "cardNumber": "1111222233334444",
+    "atmPin": "0001",
+    "cvv": "001",
+    "expiryDate": "04/28"   
+}
+
+postman response
+{
+    "timestamp": "2025-06-28T06:31:03.231+00:00",
+    "status": 500,
+    "error": "Internal Server Error",
+    "path": "/api/payments"
+}
