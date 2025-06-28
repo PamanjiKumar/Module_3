@@ -1615,3 +1615,27 @@ java.io.EOFException: null
 	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1189) ~[tomcat-embed-core-10.1.41.jar:10.1.41]
 	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:658) ~[tomcat-embed-core-10.1.41.jar:10.1.41]
 	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskTh
+
+////////////////////////////sending
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(CustomBusinessException.class)
+    public ResponseEntity<?> handleBusinessError(CustomBusinessException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<?> handleFeignError(FeignException ex) {
+        return ResponseEntity.status(ex.status()).body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleGeneralError(Exception ex) {
+        log.error("Unhandled error: ", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Unexpected error occurred", "details", ex.getMessage()));
+    }
+}
+
+
