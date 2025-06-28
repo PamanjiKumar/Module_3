@@ -1639,3 +1639,72 @@ public class GlobalExceptionHandler {
 }
 
 
+
+try {
+    userClient.getCustomerById(userId);
+} catch (FeignException.Forbidden e) {
+    log.error("Forbidden from UserService: {}", e.getMessage());
+    throw new CustomBusinessException("User is not a CUSTOMER");
+}
+
+
+import feign.FeignException;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+public class PaymentService {
+
+    // Autowired fields...
+
+    public Payment processPayment(Payment payment, String couponCodeApplied) {
+        Long bookingId = payment.getBookingId();
+        Long userId = payment.getUserId();
+        double paidAmount = payment.getAmount();
+
+        log.info("Initiating payment for bookingId={}, userId={}, amount={}", bookingId, userId, paidAmount);
+
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> {
+                    log.warn("Booking not found for ID: {}", bookingId);
+                    return new CustomBusinessException("Booking not found with ID: " + bookingId);
+                });
+
+        double totalPayable = booking.getTotalPayableAmount();
+        log.debug("Booking ID {} - Total Payable Amount = {}", bookingId, totalPayable);
+
+        if (Math.abs(paidAmount - totalPayable) > 0.01) {
+            log.warn("Payment mismatch for bookingId={}: paid={}, expected={}", bookingId, paidAmount, totalPayable);
+            throw new CustomBusinessException("Payment amount mismatch. Please pay the exact amount.");
+        }
+
+        try {
+            // Validate package existence
+            TravelPackageDTO pkg = travelPackageClient.getPackageById(booking.getPackageId());
+            log.debug("Fetched travel package: {}", pkg.getPackageName());
+        } catch (FeignException e) {
+            log.error("Failed to fetch travel package for ID {}: {}", booking.getPackageId(), e.getMessage());
+            throw new CustomBusinessException("Invalid travel package ID or package service unavailable.");
+        }
+
+        try {
+            // Save payment
+            payment.setDate(LocalDate.now());
+            Payment saved = paymentRepo.save(payment);
+            log.info("Payment saved successfully: ID = {}", saved.getPaymentId());
+
+            // Send notifications
+            notificationService.notifyUser(userId, bookingId, paidAmount);
+            notificationService.notifyTravelAgent(userId, bookingId);
+
+            return saved;
+
+        } catch (FeignException e) {
+            log.error("Notification failed: {}", e.getMessage());
+            throw new CustomBusinessException("Payment succeeded but notification failed. Support will contact you.");
+        } catch (Exception ex) {
+            log.error("Unexpected error while processing payment: {}", ex.getMessage(), ex);
+            throw new CustomBusinessException("Unexpected error occurred during payment.");
+        }
+    }
+}
