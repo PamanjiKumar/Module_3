@@ -1788,3 +1788,9 @@ public class CustomBusinessException extends RuntimeException {
 			UserDTO userDTO = userService.convertToDTO(user);
 			return ResponseEntity.ok(userDTO);
 		}
+/////////////
+{
+    "success": false,
+    "message": "Feign call failed",
+    "details": "[503] during [GET] to [http://travel-package-management/api/packages/internal/1] [TravelPackageClient#getPackageById(Long)]: [Load balancer does not contain an instance for the service travel-package-management]"
+}
