@@ -1,0 +1,396 @@
+//BookingApplication.java with JavaDocs
+
+package com.booking;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+/**
+ * Main class for starting the Booking and Payment Processing Spring Boot application.
+ * 
+ * This service is registered with Eureka and uses Feign clients for communication 
+ * with external services like Travel Package, User Management, and Insurance modules.
+ */
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients(basePackages = "com.booking.client")
+public class BookingApplication {
+
+    /**
+     * Main method to bootstrap the Spring Boot application.
+     * 
+     * @param args Command-line arguments
+     */
+    public static void main(String[] args) {
+        SpringApplication.run(BookingApplication.class, args);
+    }
+}
+
+
+
+//BookingController.java with JavaDocs
+
+/**
+ * Controller to manage booking operations including creation, retrieval, cancellation,
+ * and deletion of bookings. Also includes endpoints to interact with other modules
+ * such as User Management, Travel Insurance, and Travel Package services.
+ */
+@RestController
+@RequestMapping("/api/bookings")
+@CrossOrigin(origins = "http://localhost:4200")
+public class BookingController {
+
+    private final BookingService service;
+    private static final Logger logger = Logger.getLogger(BookingController.class.getName());
+
+    @Autowired
+    public BookingController(BookingService service) {
+        this.service = service;
+    }
+
+    /**
+     * Creates a new booking.
+     *
+     * @param booking the booking details
+     * @return the created booking as BookingDTO
+     */
+    @PostMapping
+    public ResponseEntity<BookingDTO> createBooking(@RequestBody Booking booking) {
+        try {
+            BookingDTO bookingDTO = service.createBooking(booking);
+            return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+        } catch (RuntimeException ex) {
+            logger.severe("Error creating booking: " + ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    /**
+     * Retrieves all bookings.
+     *
+     * @return list of bookings
+     */
+    @GetMapping
+    public ResponseEntity<List<Booking>> getAllBookings() {
+        List<Booking> bookings = service.getAllBookings();
+        return ResponseEntity.ok(bookings);
+    }
+
+    /**
+     * Retrieves a booking by its ID.
+     *
+     * @param id the booking ID
+     * @return the booking if found
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<Booking> getBookingById(@PathVariable Long id) {
+        Booking booking = service.getBookingById(id);
+        if (booking == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(booking);
+    }
+
+    /**
+     * Cancels a booking by its ID.
+     *
+     * @param id the booking ID
+     * @return response indicating cancellation status
+     */
+    @PutMapping("/cancel/{id}")
+    public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
+        return service.cancelBooking(id);
+    }
+
+    /**
+     * Deletes a booking by its ID.
+     *
+     * @param id the booking ID
+     */
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        service.deleteBooking(id);
+    }
+
+    /**
+     * Retrieves bookings for a specific user.
+     * Called internally by User Management Module.
+     *
+     * @param userId the user ID
+     * @return list of user's bookings
+     */
+    @GetMapping("/internal/bookings/user/{userId}")
+    public ResponseEntity<List<Booking>> getBookingsByUserId(@PathVariable Long userId) {
+        List<Booking> bookings = service.getBookingsByUserId(userId);
+        if (bookings.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(bookings);
+    }
+
+    /**
+     * Checks if a user has completed a specific travel package.
+     * Used by Reviews and Ratings Module.
+     *
+     * @param userId the user ID
+     * @param packageId the package ID
+     * @return true if completed, false otherwise
+     */
+    @GetMapping("/user/{userId}/package/{packageId}/completed")
+    public boolean hasUserCompletedPackage(@PathVariable Long userId, @PathVariable String packageId) {
+        return service.hasUserCompletedPackage(userId, packageId);
+    }
+
+    /**
+     * Retrieves a booking by its ID.
+     * Used internally by the Travel Insurance Module.
+     *
+     * @param id the booking ID
+     * @return the booking if found
+     */
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<Booking> getInternalBookingById(@PathVariable Long id) {
+        Booking booking = service.getBookingById(id);
+        if (booking == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(booking);
+    }
+
+    /**
+     * Retrieves all available travel packages from the Travel Package Management Module.
+     *
+     * @return list of travel packages
+     */
+    @GetMapping("/packages")
+    public ResponseEntity<ApiResponse> getAllPackages() {
+        List<TravelPackageDTO> packages = service.getAllPackages();
+        return ResponseEntity.ok(new ApiResponse(true, "All packages retrieved", packages));
+    }
+
+    /**
+     * Retrieves a specific travel package by its ID from the Travel Package Management Module.
+     *
+     * @param packageId the package ID
+     * @return the travel package details
+     */
+    @GetMapping("/packages/{id}")
+    public ResponseEntity<ApiResponse> getPackageById(@PathVariable("id") Long packageId) {
+        TravelPackageDTO packages = service.getPackageById(packageId);
+        return ResponseEntity.ok(new ApiResponse(true, "Package retrieved successfully", packages));
+    }
+}
+
+
+//BookingService.java with JavaDocs
+package com.booking.service;
+
+import com.booking.client.TravelPackageClient;
+import com.booking.client.TravelInsuranceClient;
+import com.booking.client.UserClient;
+import com.booking.dto.BookingDTO;
+import com.booking.dto.TravelPackageDTO;
+import com.booking.dto.UserDTO;
+import com.booking.entity.Booking;
+import com.booking.repository.BookingRepository;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * Service layer that handles core booking operations like creating, cancelling,
+ * retrieving, and validating bookings. Also fetches data from external services
+ * using Feign clients.
+ */
+@Service
+public class BookingService {
+
+    @Autowired
+    private BookingRepository bookingRepo;
+
+    @Autowired
+    private TravelPackageClient travelPackageClient;
+
+    @Autowired
+    private TravelInsuranceClient travelInsuranceClient;
+
+    @Autowired
+    private UserClient userClient;
+
+    private static final Logger logger = Logger.getLogger(BookingService.class.getName());
+
+    /**
+     * Creates a booking for a valid user and travel package. Validates optional insurance.
+     *
+     * @param bookingRequest Booking request from the client
+     * @return BookingDTO containing the saved booking details
+     */
+    public BookingDTO createBooking(Booking bookingRequest) {
+        Long userId = bookingRequest.getUserId();
+        Long packageId = bookingRequest.getPackageId();
+        Integer insuranceId = bookingRequest.getInsuranceId();
+
+        logger.info("Creating booking for userId: " + userId + " and packageId: " + packageId);
+
+        // Validate user
+        UserDTO user = userClient.getCustomerById(userId);
+        if (user == null || !"CUSTOMER".equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("User is not a valid CUSTOMER.");
+        }
+
+        // Validate package
+        TravelPackageDTO travelPackage = travelPackageClient.getPackageById(packageId);
+        if (travelPackage == null) {
+            throw new IllegalArgumentException("Invalid travel package ID.");
+        }
+
+        // Optional: Validate insurance if selected
+        if (insuranceId != null && insuranceId > 0) {
+            boolean exists = travelInsuranceClient.validateInsurance(insuranceId);
+            if (!exists) {
+                throw new IllegalArgumentException("Selected Insurance ID is invalid.");
+            }
+        }
+
+        // Create and save booking
+        Booking booking = new Booking();
+        booking.setUserId(userId);
+        booking.setPackageId(packageId);
+        booking.setInsuranceId(insuranceId);
+        booking.setTripStartDate(travelPackage.getTripStartDate());
+        booking.setTripEndDate(travelPackage.getTripEndDate());
+        booking.setStatus("PENDING");
+
+        Booking savedBooking = bookingRepo.save(booking);
+
+        // Prepare DTO response
+        BookingDTO dto = new BookingDTO();
+        dto.setBookingId(savedBooking.getBookingId());
+        dto.setUserId(userId);
+        dto.setPackageId(packageId);
+        dto.setInsuranceId(insuranceId);
+        dto.setTripStartDate(savedBooking.getTripStartDate());
+        dto.setTripEndDate(savedBooking.getTripEndDate());
+        dto.setStatus(savedBooking.getStatus());
+        dto.setPaymentId(savedBooking.getPaymentId());
+
+        logger.info("Booking created successfully with bookingId: " + savedBooking.getBookingId());
+
+        return dto;
+    }
+
+    /**
+     * Retrieves all bookings from the database.
+     *
+     * @return List of Booking entities
+     */
+    public List<Booking> getAllBookings() {
+        return bookingRepo.findAll();
+    }
+
+    /**
+     * Fetches booking by booking ID.
+     *
+     * @param id Booking ID
+     * @return Booking if found; null otherwise
+     */
+    public Booking getBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+
+    /**
+     * Fetches booking by booking ID for internal services.
+     *
+     * @param id Booking ID
+     * @return Booking if found; null otherwise
+     */
+    public Booking getInternalBookingById(Long id) {
+        return bookingRepo.findById(id).orElse(null);
+    }
+
+    /**
+     * Deletes a booking based on its ID.
+     *
+     * @param id Booking ID
+     */
+    public void deleteBooking(Long id) {
+        bookingRepo.deleteById(id);
+    }
+
+    /**
+     * Cancels a booking only if at least 7 days are left before the trip start.
+     *
+     * @param bookingId Booking ID to be cancelled
+     * @return HTTP response indicating success or failure reason
+     */
+    public ResponseEntity<String> cancelBooking(Long bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.badRequest().body("Booking not found.");
+        }
+
+        LocalDate today = LocalDate.now();
+        if (booking.getTripStartDate().minusDays(7).isBefore(today)) {
+            return ResponseEntity.badRequest().body("Cancellation not allowed. Must cancel at least 7 days before departure.");
+        }
+
+        booking.setStatus("CANCELLED");
+        bookingRepo.save(booking);
+        return ResponseEntity.ok("Booking cancelled successfully.");
+    }
+
+    /**
+     * Retrieves all bookings associated with a user ID.
+     *
+     * @param userId User ID
+     * @return List of bookings for the given user
+     */
+    public List<Booking> getBookingsByUserId(Long userId) {
+        return bookingRepo.findByUserId(userId);
+    }
+
+    /**
+     * Checks if the user has completed the given travel package.
+     *
+     * @param userId    User ID
+     * @param packageId Travel package ID (as String)
+     * @return true if booking is completed; false otherwise
+     */
+    public boolean hasUserCompletedPackage(Long userId, String packageId) {
+        List<Booking> bookings = bookingRepo.findByUserId(userId);
+        LocalDate today = LocalDate.now();
+
+        return bookings.stream()
+            .anyMatch(b ->
+                String.valueOf(b.getPackageId()).equals(packageId) &&
+                "CONFIRMED".equalsIgnoreCase(b.getStatus()) &&
+                !b.getTripEndDate().isAfter(today)
+            );
+    }
+
+    /**
+     * Fetches all travel packages from the Travel Package Management module.
+     *
+     * @return List of travel packages
+     */
+    public List<TravelPackageDTO> getAllPackages() {
+        return travelPackageClient.getAllPackages();
+    }
+
+    /**
+     * Fetches a specific travel package by ID from the Travel Package Management module.
+     *
+     * @param packageId ID of the travel package
+     * @return TravelPackageDTO containing the package details
+     */
+    public TravelPackageDTO getPackageById(Long packageId) {
+        return travelPackageClient.getPackageById(packageId);
+    }
+}
