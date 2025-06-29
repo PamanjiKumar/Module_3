@@ -1,7 +1,7 @@
 //booking.service.ts
 
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -10,15 +10,14 @@ import { Observable } from 'rxjs';
 export class BookingService {
   private baseUrl = 'http://localhost:8080/bookings';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
   createBooking(userId: number, packageId: number, startDate: string): Observable<any> {
-    const booking = { userId, packageId, startDate };
-    return this.http.post(`${this.baseUrl}`, booking);
-  }
-
-  getUserBookings(userId: number): Observable<any> {
-    return this.http.get(`${this.baseUrl}/user/${userId}`);
+    return this.http.post(`${this.baseUrl}`, {
+      userId,
+      packageId,
+      startDate
+    });
   }
 }
 
