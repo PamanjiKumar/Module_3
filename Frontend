@@ -35,25 +35,35 @@ import { BookingService } from 'src/app/services/booking.service';
 })
 export class BookingComponent implements OnInit {
   packageId!: number;
-  userId = 101;  // Replace with actual logged-in user ID
-  startDate = '2025-09-10';  // Could be taken from form
+  userId = 101; // Normally taken from login/session
+  startDate = '';
 
-  constructor(private bookingService: BookingService,
-              private route: ActivatedRoute,
-              private router: Router) {}
+  constructor(
+    private bookingService: BookingService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.packageId = +this.route.snapshot.paramMap.get('packageId')!;
   }
 
-  bookPackage() {
-    this.bookingService.createBooking(this.userId, this.packageId, this.startDate)
+  bookNow() {
+    if (!this.startDate) {
+      alert('Please select a start date.');
+      return;
+    }
+
+    this.bookingService
+      .createBooking(this.userId, this.packageId, this.startDate)
       .subscribe({
         next: (res) => {
-          const bookingId = res.bookingId;
-          this.router.navigate(['/payment', bookingId]);
+          alert('Booking Successful!');
+          this.router.navigate(['/payment', res.bookingId]);
         },
-        error: err => alert('Booking failed!')
+        error: () => {
+          alert('Booking failed!');
+        }
       });
   }
 }
@@ -115,3 +125,5 @@ export class PaymentService {
     return this.http.post(`${this.baseUrl}`, payment);
   }
 }
+
+//
