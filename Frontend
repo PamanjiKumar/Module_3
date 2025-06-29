@@ -1,69 +1,75 @@
+//app.routes.ts
+import { Routes } from '@angular/router';
+import { BookingComponent } from './components/booking/booking.component';
+import { PaymentComponent } from './components/payment/payment.component';
+import { ConfirmationComponent } from './components/confirmation/confirmation.component';
+
+export const routes: Routes = [
+  { path: 'book/:packageId', component: BookingComponent },
+  { path: 'payment/:bookingId', component: PaymentComponent },
+  { path: 'confirmation/:bookingId', component: ConfirmationComponent },
+  { path: '**', redirectTo: '', pathMatch: 'full' }
+];
+
+
 //booking.service.ts
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class BookingService {
   private baseUrl = 'http://localhost:8080/bookings';
 
   constructor(private http: HttpClient) {}
 
   createBooking(userId: number, packageId: number, startDate: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}`, {
-      userId,
-      packageId,
-      startDate
-    });
+    return this.http.post(`${this.baseUrl}`, { userId, packageId, startDate });
   }
 }
 
 
 //booking.component.ts
 
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BookingService } from 'src/app/services/booking.service';
 
 @Component({
   selector: 'app-booking',
+  standalone: true,
+  imports: [],
   templateUrl: './booking.component.html'
 })
-export class BookingComponent implements OnInit {
+export class BookingComponent {
   packageId!: number;
-  userId = 101; // Normally taken from login/session
+  userId = 101; // Use real session/user value
   startDate = '';
 
   constructor(
-    private bookingService: BookingService,
     private route: ActivatedRoute,
-    private router: Router
-  ) {}
-
-  ngOnInit(): void {
+    private router: Router,
+    private bookingService: BookingService
+  ) {
     this.packageId = +this.route.snapshot.paramMap.get('packageId')!;
   }
 
   bookNow() {
     if (!this.startDate) {
-      alert('Please select a start date.');
+      alert('Please select a start date');
       return;
     }
 
-    this.bookingService
-      .createBooking(this.userId, this.packageId, this.startDate)
-      .subscribe({
-        next: (res) => {
-          alert('Booking Successful!');
-          this.router.navigate(['/payment', res.bookingId]);
-        },
-        error: () => {
-          alert('Booking failed!');
-        }
-      });
+    this.bookingService.createBooking(this.userId, this.packageId, this.startDate).subscribe({
+      next: (res) => {
+        const bookingId = res.bookingId;
+        this.router.navigate(['/payment', bookingId]);
+      },
+      error: () => {
+        alert('Booking failed. Try again.');
+      }
+    });
   }
 }
 
@@ -71,15 +77,15 @@ export class BookingComponent implements OnInit {
 //booking.component.html
 <div class="container mt-5">
   <h2>Book Your Package</h2>
-  <p>Package ID: {{ packageId }}</p>
+  <p><strong>Package ID:</strong> {{ packageId }}</p>
 
   <form (ngSubmit)="bookNow()">
     <div class="mb-3">
-      <label for="startDate" class="form-label">Select Start Date:</label>
+      <label for="startDate" class="form-label">Start Date</label>
       <input
         type="date"
-        id="startDate"
         class="form-control"
+        id="startDate"
         [(ngModel)]="startDate"
         name="startDate"
         required
@@ -91,49 +97,46 @@ export class BookingComponent implements OnInit {
 </div>
 
 
-
 //payment.component.ts
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PaymentService } from 'src/app/services/payment.service';
 
 @Component({
   selector: 'app-payment',
+  standalone: true,
+  imports: [],
   templateUrl: './payment.component.html'
 })
-export class PaymentComponent implements OnInit {
+export class PaymentComponent {
   bookingId!: number;
-  userId = 101; // Normally from auth
+  userId = 101;
   paymentMethod = 'CREDIT_CARD';
-  amount = 0;
+  amount = 34999;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private paymentService: PaymentService
-  ) {}
-
-  ngOnInit(): void {
+  ) {
     this.bookingId = +this.route.snapshot.paramMap.get('bookingId')!;
-    // You can fetch booking details here to get dynamic amount
-    this.amount = 34999; // Static for now, or load from API
   }
 
   payNow() {
     const payment = {
-      bookingId: this.bookingId,
       userId: this.userId,
+      bookingId: this.bookingId,
       amount: this.amount,
       paymentMethod: this.paymentMethod
     };
 
     this.paymentService.makePayment(payment).subscribe({
       next: () => {
-        alert('Payment Successful!');
+        alert('Payment successful!');
         this.router.navigate(['/confirmation', this.bookingId]);
       },
       error: () => {
-        alert('Payment failed!');
+        alert('Payment failed.');
       }
     });
   }
@@ -142,22 +145,33 @@ export class PaymentComponent implements OnInit {
 
 //payment.component.html
 <div class="container mt-5">
-  <h2>Payment</h2>
-  <p>Booking ID: {{ bookingId }}</p>
+  <h2>Payment for Booking #{{ bookingId }}</h2>
 
   <form (ngSubmit)="payNow()">
     <div class="mb-3">
-      <label for="amount" class="form-label">Amount:</label>
-      <input type="text" class="form-control" id="amount" [(ngModel)]="amount" name="amount" readonly />
+      <label for="amount" class="form-label">Amount</label>
+      <input
+        type="number"
+        class="form-control"
+        id="amount"
+        [(ngModel)]="amount"
+        name="amount"
+        readonly
+      />
     </div>
 
     <div class="mb-3">
-      <label for="method" class="form-label">Payment Method:</label>
-      <select class="form-select" id="method" [(ngModel)]="paymentMethod" name="paymentMethod">
+      <label for="method" class="form-label">Payment Method</label>
+      <select
+        id="method"
+        class="form-select"
+        [(ngModel)]="paymentMethod"
+        name="paymentMethod"
+      >
         <option value="CREDIT_CARD">Credit Card</option>
         <option value="DEBIT_CARD">Debit Card</option>
-        <option value="NET_BANKING">Net Banking</option>
         <option value="UPI">UPI</option>
+        <option value="NET_BANKING">Net Banking</option>
       </select>
     </div>
 
@@ -171,9 +185,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class PaymentService {
   private baseUrl = 'http://localhost:8080/payments';
 
@@ -186,27 +198,29 @@ export class PaymentService {
 
 
 //confirmation.component.ts
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-confirmation',
+  standalone: true,
+  imports: [],
   templateUrl: './confirmation.component.html'
 })
-export class ConfirmationComponent implements OnInit {
+export class ConfirmationComponent {
   bookingId!: number;
 
-  ngOnInit(): void {
+  constructor(private route: ActivatedRoute) {
     this.bookingId = +this.route.snapshot.paramMap.get('bookingId')!;
   }
 }
 
 //confirmation.component.html
-<div class="container mt-5 text-center">
+<div class="container text-center mt-5">
   <h2>🎉 Booking Confirmed!</h2>
-  <p>Your booking (ID: <strong>{{ bookingId }}</strong>) has been confirmed.</p>
-  <p>You will receive a confirmation email shortly.</p>
-
-  <a routerLink="/" class="btn btn-primary mt-3">Go to Dashboard</a>
+  <p>Your booking ID is <strong>{{ bookingId }}</strong>.</p>
+  <p>Confirmation has been sent to your registered email.</p>
+  <a routerLink="/" class="btn btn-primary mt-3">Back to Dashboard</a>
 </div>
+
 
