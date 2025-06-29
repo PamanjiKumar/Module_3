@@ -103,34 +103,68 @@ import { PaymentService } from 'src/app/services/payment.service';
 })
 export class PaymentComponent implements OnInit {
   bookingId!: number;
-  userId = 101; // Replace with actual logged-in user
+  userId = 101; // Normally from auth
   paymentMethod = 'CREDIT_CARD';
-  amount = 34999;  // You can fetch dynamically using BookingService
+  amount = 0;
 
-  constructor(private route: ActivatedRoute,
-              private router: Router,
-              private paymentService: PaymentService) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private paymentService: PaymentService
+  ) {}
 
   ngOnInit(): void {
     this.bookingId = +this.route.snapshot.paramMap.get('bookingId')!;
+    // You can fetch booking details here to get dynamic amount
+    this.amount = 34999; // Static for now, or load from API
   }
 
-  pay() {
-    const paymentDto = {
+  payNow() {
+    const payment = {
       bookingId: this.bookingId,
       userId: this.userId,
       amount: this.amount,
       paymentMethod: this.paymentMethod
     };
-    this.paymentService.makePayment(paymentDto).subscribe({
-      next: res => {
-        alert('Payment Successful');
+
+    this.paymentService.makePayment(payment).subscribe({
+      next: () => {
+        alert('Payment Successful!');
         this.router.navigate(['/confirmation', this.bookingId]);
       },
-      error: err => alert('Payment failed!')
+      error: () => {
+        alert('Payment failed!');
+      }
     });
   }
 }
+
+
+//payment.component.html
+<div class="container mt-5">
+  <h2>Payment</h2>
+  <p>Booking ID: {{ bookingId }}</p>
+
+  <form (ngSubmit)="payNow()">
+    <div class="mb-3">
+      <label for="amount" class="form-label">Amount:</label>
+      <input type="text" class="form-control" id="amount" [(ngModel)]="amount" name="amount" readonly />
+    </div>
+
+    <div class="mb-3">
+      <label for="method" class="form-label">Payment Method:</label>
+      <select class="form-select" id="method" [(ngModel)]="paymentMethod" name="paymentMethod">
+        <option value="CREDIT_CARD">Credit Card</option>
+        <option value="DEBIT_CARD">Debit Card</option>
+        <option value="NET_BANKING">Net Banking</option>
+        <option value="UPI">UPI</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-success">Make Payment</button>
+  </form>
+</div>
+
 
 //payment.service.ts
 import { Injectable } from '@angular/core';
@@ -150,4 +184,29 @@ export class PaymentService {
   }
 }
 
-//
+
+//confirmation.component.ts
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+@Component({
+  selector: 'app-confirmation',
+  templateUrl: './confirmation.component.html'
+})
+export class ConfirmationComponent implements OnInit {
+  bookingId!: number;
+
+  ngOnInit(): void {
+    this.bookingId = +this.route.snapshot.paramMap.get('bookingId')!;
+  }
+}
+
+//confirmation.component.html
+<div class="container mt-5 text-center">
+  <h2>🎉 Booking Confirmed!</h2>
+  <p>Your booking (ID: <strong>{{ bookingId }}</strong>) has been confirmed.</p>
+  <p>You will receive a confirmation email shortly.</p>
+
+  <a routerLink="/" class="btn btn-primary mt-3">Go to Dashboard</a>
+</div>
+
