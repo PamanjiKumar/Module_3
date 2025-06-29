@@ -1,0 +1,117 @@
+//booking.service.ts
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class BookingService {
+  private baseUrl = 'http://localhost:8080/bookings';
+
+  constructor(private http: HttpClient) { }
+
+  createBooking(userId: number, packageId: number, startDate: string): Observable<any> {
+    const booking = { userId, packageId, startDate };
+    return this.http.post(`${this.baseUrl}`, booking);
+  }
+
+  getUserBookings(userId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/user/${userId}`);
+  }
+}
+
+
+//booking.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { BookingService } from 'src/app/services/booking.service';
+
+@Component({
+  selector: 'app-booking',
+  templateUrl: './booking.component.html'
+})
+export class BookingComponent implements OnInit {
+  packageId!: number;
+  userId = 101;  // Replace with actual logged-in user ID
+  startDate = '2025-09-10';  // Could be taken from form
+
+  constructor(private bookingService: BookingService,
+              private route: ActivatedRoute,
+              private router: Router) {}
+
+  ngOnInit(): void {
+    this.packageId = +this.route.snapshot.paramMap.get('packageId')!;
+  }
+
+  bookPackage() {
+    this.bookingService.createBooking(this.userId, this.packageId, this.startDate)
+      .subscribe({
+        next: (res) => {
+          const bookingId = res.bookingId;
+          this.router.navigate(['/payment', bookingId]);
+        },
+        error: err => alert('Booking failed!')
+      });
+  }
+}
+
+//payment.component.ts
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { PaymentService } from 'src/app/services/payment.service';
+
+@Component({
+  selector: 'app-payment',
+  templateUrl: './payment.component.html'
+})
+export class PaymentComponent implements OnInit {
+  bookingId!: number;
+  userId = 101; // Replace with actual logged-in user
+  paymentMethod = 'CREDIT_CARD';
+  amount = 34999;  // You can fetch dynamically using BookingService
+
+  constructor(private route: ActivatedRoute,
+              private router: Router,
+              private paymentService: PaymentService) {}
+
+  ngOnInit(): void {
+    this.bookingId = +this.route.snapshot.paramMap.get('bookingId')!;
+  }
+
+  pay() {
+    const paymentDto = {
+      bookingId: this.bookingId,
+      userId: this.userId,
+      amount: this.amount,
+      paymentMethod: this.paymentMethod
+    };
+    this.paymentService.makePayment(paymentDto).subscribe({
+      next: res => {
+        alert('Payment Successful');
+        this.router.navigate(['/confirmation', this.bookingId]);
+      },
+      error: err => alert('Payment failed!')
+    });
+  }
+}
+
+//payment.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class PaymentService {
+  private baseUrl = 'http://localhost:8080/payments';
+
+  constructor(private http: HttpClient) {}
+
+  makePayment(payment: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}`, payment);
+  }
+}
