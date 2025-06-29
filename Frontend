@@ -68,6 +68,31 @@ export class BookingComponent implements OnInit {
   }
 }
 
+
+//booking.component.html
+<div class="container mt-5">
+  <h2>Book Your Package</h2>
+  <p>Package ID: {{ packageId }}</p>
+
+  <form (ngSubmit)="bookNow()">
+    <div class="mb-3">
+      <label for="startDate" class="form-label">Select Start Date:</label>
+      <input
+        type="date"
+        id="startDate"
+        class="form-control"
+        [(ngModel)]="startDate"
+        name="startDate"
+        required
+      />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Book Now</button>
+  </form>
+</div>
+
+
+
 //payment.component.ts
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
