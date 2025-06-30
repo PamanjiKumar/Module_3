@@ -156,3 +156,10 @@ constructor( private route: ActivatedRoute,
   </div>
 </div>
  
+///////////////////
+// CORRECTED: Changed packageId type to number
+  getPackageById(packageId: number): Observable<{ data :TravelPackage}> { // Type as TravelPackage
+    return this.http.get<any>(`${this.baseUrl}/${packageId}`).pipe(
+      map(response => response.data || response) // Robustly get the package data
+    );
+  }
