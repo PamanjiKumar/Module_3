@@ -163,3 +163,45 @@ constructor( private route: ActivatedRoute,
       map(response => response.data || response) // Robustly get the package data
     );
   }
+
+//////////////
+▲ [WARNING] NG8103: The `*ngIf` directive was used in the template, but neither the `NgIf` directive nor the `CommonModule` was imported. Use Angular's built-in control flow @if or make sure that either the `NgIf` directive or the `CommonModule` is included in the `@Component.imports` array of this component. [plugin angular-compiler]
+
+    src/app/payment/payment.component.html:43:10:
+      43 │     <div *ngIf="showTotal" class="mb-3 bg-green-100 p-3 rounded">
+         ╵           ~~~~
+
+  Error occurs in the template of component PaymentComponent.
+
+    src/app/payment/payment.component.ts:8:15:
+      8 │   templateUrl: './payment.component.html'
+        ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+X [ERROR] NG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'. [plugin angular-compiler]
+
+    src/app/booking/booking.component.html:4:8:
+      4 │   <form [formGroup]="bookingForm" (ngSubmit)="bookPackage()">
+        ╵         ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Error occurs in the template of component BookingComponent.
+
+    src/app/booking/booking.component.ts:9:15:
+      9 │   templateUrl: './booking.component.html'
+        ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+X [ERROR] NG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'. [plugin angular-compiler]
+
+    src/app/payment/payment.component.html:4:8:
+      4 │   <form [formGroup]="paymentForm" (ngSubmit)="submitPayment()">
+        ╵         ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Error occurs in the template of component PaymentComponent.
+
+    src/app/payment/payment.component.ts:8:15:
+      8 │   templateUrl: './payment.component.html'
+        ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Watch mode enabled. Watching for file changes...
