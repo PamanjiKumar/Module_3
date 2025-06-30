@@ -1609,3 +1609,74 @@ public ResponseEntity<?> createBooking(@RequestBody Booking booking) {
                              .body(new ApiResponse(false, "Booking failed: " + ex.getMessage(), null));
     }
 }
+
+.\///////\\/\/
+public BookingDTO createBooking(Booking bookingRequest) {
+    Long userId = bookingRequest.getUserId();
+    Long packageId = bookingRequest.getPackageId();
+    Integer insuranceId = bookingRequest.getInsuranceId();
+
+    logger.info("Creating booking for userId: " + userId + " and packageId: " + packageId);
+
+    // 1. Validate User
+    UserDTO user;
+    try {
+        user = userClient.getCustomerById(userId);
+        if (user == null || !"CUSTOMER".equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("User is not a valid CUSTOMER.");
+        }
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        throw new RuntimeException("Failed to fetch user details: " + ex.getMessage());
+    }
+
+    // 2. Validate Package
+    TravelPackageDTO travelPackage;
+    try {
+        travelPackage = travelPackageClient.getPackageById(packageId);
+        if (travelPackage == null) {
+            throw new IllegalArgumentException("Invalid travel package ID.");
+        }
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        throw new RuntimeException("Failed to fetch package details: " + ex.getMessage());
+    }
+
+    // 3. Validate Insurance (optional)
+    if (insuranceId != null && insuranceId > 0) {
+        try {
+            boolean exists = travelInsuranceClient.validateInsurance(insuranceId);
+            if (!exists) {
+                throw new IllegalArgumentException("Selected Insurance ID is invalid.");
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            throw new RuntimeException("Failed to validate insurance: " + ex.getMessage());
+        }
+    }
+
+    // 4. Create and save booking
+    Booking booking = new Booking();
+    booking.setUserId(userId);
+    booking.setPackageId(packageId);
+    booking.setInsuranceId(insuranceId);
+    booking.setTripStartDate(travelPackage.getTripStartDate());
+    booking.setTripEndDate(travelPackage.getTripEndDate());
+    booking.setStatus("PENDING");
+
+    Booking savedBooking = bookingRepo.save(booking);
+
+    // 5. Build response DTO
+    BookingDTO dto = new BookingDTO();
+    dto.setBookingId(savedBooking.getBookingId());
+    dto.setUserId(userId);
+    dto.setPackageId(packageId);
+    dto.setInsuranceId(insuranceId);
+    dto.setTripStartDate(savedBooking.getTripStartDate());
+    dto.setTripEndDate(savedBooking.getTripEndDate());
+    dto.setStatus(savedBooking.getStatus());
+    dto.setPaymentId(savedBooking.getPaymentId());
+
+    logger.info("Booking created successfully with bookingId: " + savedBooking.getBookingId());
+    return dto;
+}
