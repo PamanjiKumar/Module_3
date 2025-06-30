@@ -237,3 +237,31 @@ export class PaymentSuccessComponent {}
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
+
+
+///////////////////////
+bookPackage() {
+  const payload = {
+    userId: this.userId,
+    packageId: this.packageId,
+    insuranceId: this.bookingForm.value.insuranceId || null,
+    tripStartDate: this.tripStartDate,
+    tripEndDate: this.tripEndDate
+  };
+
+  console.log('Booking payload:', payload); // ✅ Inspect in browser console
+
+  this.bookingService.createBooking(payload).subscribe({
+    next: (res) => {
+      alert('Booking Created!');
+      this.router.navigate(['/payment'], {
+        state: { bookingId: res.bookingId, userId: res.userId }
+      });
+    },
+    error: (err) => {
+      console.error('Booking failed:', err);
+      const errorMsg = err?.error?.message || err.statusText || 'Unknown error';
+      alert('Booking failed: ' + errorMsg);
+    }
+  });
+}
