@@ -1719,3 +1719,95 @@ getExpectedTotal(bookingId: number, couponCode?: string): Observable<any> {
   }
   return this.http.get<any>(url);
 }
+///////
+<div class="card p-4 max-w-xl mx-auto bg-white rounded-lg shadow-md mt-6">
+  <h2 class="text-2xl font-semibold mb-4 text-blue-600">Confirm Your Booking</h2>
+
+  <form [formGroup]="bookingForm" (ngSubmit)="bookPackage()" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Trip Start Date</label>
+      <p class="bg-gray-100 p-2 rounded text-gray-800">{{ tripStartDate }}</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Trip End Date</label>
+      <p class="bg-gray-100 p-2 rounded text-gray-800">{{ tripEndDate }}</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Insurance ID (optional)</label>
+      <input
+        type="number"
+        formControlName="insuranceId"
+        class="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+        placeholder="Enter Insurance ID"
+      />
+    </div>
+
+    <button
+      type="submit"
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition"
+    >
+      Proceed to Payment
+    </button>
+  </form>
+</div>
+//////////////
+<div class="card p-6 max-w-xl mx-auto bg-white rounded-lg shadow-md mt-6">
+  <h2 class="text-2xl font-semibold mb-4 text-green-600">Payment Details</h2>
+
+  <form [formGroup]="paymentForm" (ngSubmit)="submitPayment()" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Card Number</label>
+      <input type="text" formControlName="cardNumber" placeholder="1234 5678 9012 3456"
+        class="w-full p-2 border border-gray-300 rounded" />
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">CVV</label>
+        <input type="text" formControlName="cvv" class="w-full p-2 border border-gray-300 rounded" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">ATM PIN</label>
+        <input type="password" formControlName="atmPin" class="w-full p-2 border border-gray-300 rounded" />
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Expiry Date</label>
+      <input type="text" formControlName="expiryDate" placeholder="MM/YY"
+        class="w-full p-2 border border-gray-300 rounded" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Payment Method</label>
+      <select formControlName="paymentMethod" class="w-full p-2 border border-gray-300 rounded">
+        <option value="Credit Card">Credit Card</option>
+        <option value="Debit Card">Debit Card</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Coupon Code</label>
+      <input type="text" formControlName="couponCode" (blur)="fetchExpectedTotal()"
+        class="w-full p-2 border border-gray-300 rounded" />
+    </div>
+
+    <div *ngIf="showTotal" class="bg-green-100 text-green-900 p-3 rounded border border-green-300">
+      <strong>Expected Total:</strong> ₹{{ expectedTotal }}
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Enter Amount to Pay</label>
+      <input type="number" formControlName="amount" class="w-full p-2 border border-gray-300 rounded" />
+    </div>
+
+    <button
+      type="submit"
+      class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition"
+    >
+      Pay Now
+    </button>
+  </form>
+</div>
