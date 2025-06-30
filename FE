@@ -224,3 +224,16 @@ import { Component } from '@angular/core';
   `,
 })
 export class PaymentSuccessComponent {}
+
+
+////////////////
+ @PostMapping
+    public ResponseEntity<BookingDTO> createBooking(@RequestBody Booking booking) {
+        try {
+            BookingDTO bookingDTO = service.createBooking(booking);
+            return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+        } catch (RuntimeException ex) {
+            logger.severe("Error creating booking: " + ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
