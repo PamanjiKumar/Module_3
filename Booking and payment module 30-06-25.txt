@@ -1711,3 +1711,11 @@ this.bookingService.createBooking(payload).subscribe({
     }
     return this.http.get<any>(`${this.baseUrl}/expected-total`, { params });
   }
+/\/\/
+getExpectedTotal(bookingId: number, couponCode?: string): Observable<any> {
+  let url = `${this.baseUrl}/expected-total/${bookingId}`;
+  if (couponCode) {
+    url += `?couponCode=${couponCode}`;
+  }
+  return this.http.get<any>(url);
+}
