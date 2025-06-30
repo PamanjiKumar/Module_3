@@ -1499,7 +1499,9 @@ logging.level.org.springframework.web=DEBUG
     </build>
  
 </project>
-//////////////
+
+
+"webconfig.java"
 package com.booking.config;
 
 import org.springframework.context.annotation.Bean;
@@ -1524,3 +1526,4 @@ public class WebConfig {
         };
     }
 }
+
