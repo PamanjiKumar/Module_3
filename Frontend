@@ -1,3 +1,29 @@
+///
+I have attached the project description we are working on, we are doing it in java, spring boot, My SQL and ANGULAR 19 CLI, in that i am assigned to Booking and payment processing module that is module 3 
+
+And i also attached the entire backend code for my module i want my front end code for this module based on my code snippets give me my front end code in angular version 19
+
+tThe image i have attached shows, This is the customer dashboard where the customer is viewing a particular package and there is a book now which does not have any functionality for now, we have to add that by clicking that a customer can book a package and then redirected to the payment flow after completion of payment process the customer and respective travel agent can get a notification through email
+
+By clicking the "BOOK NOW" button the customer can book a package, the front end should fetch some of the inputs for booking a package that is 
+
+"userId", "packageId" ,"insuranceId" (optional) ,"tripStartDate", "tripEndDate" (which is fetched from module 2 based on the package customer is in)
+
+And then after redirect to the payment flow of the specific package to do the payment
+
+The inputs required for the payment should be fetched by the front end like "userId", "bookingId",
+the payment method also be choosen by the customer which is only "Debit card" or "Credit card" in that they enter "card number", "cvv", "atm pin", "expiry date" 
+also include the "coupon code" if he would like to apply here when the customer uses coupon code that amount should be removed from the total payable,
+when the cusotmer uses insurnace then the amount should be added to the total payable,
+when the customer uses insurnace and also coupon code then the total payable should be package price added to insurance price and remove the discount price 
+and the amount should be entered by the customer the amount should be equal to total payable or else we will show correct amount to be paid
+
+After successfull payment we will send a notification to the customer and respective agent of the packageId through Email and we will show a screen like payment done successfully
+
+As we now have the entire flow of what to do let us go step by step of how to do as i am beginner to angular
+i do not have app.module.ts , app-routing.module.ts in my version of angular (version 19) so re write the code accordingly
+
+
 //app.routes.ts
 import { Routes } from '@angular/router';
 import { BookingComponent } from './components/booking/booking.component';
