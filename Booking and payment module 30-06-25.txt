@@ -1702,3 +1702,12 @@ this.bookingService.createBooking(payload).subscribe({
     alert('Booking failed: ' + errorMsg);
   }
 });
+
+///\/\/\
+ getExpectedTotal(bookingId: number, couponCode?: string): Observable<any> {
+    let params = new HttpParams().set('bookingId', bookingId.toString());
+    if (couponCode) {
+      params = params.set('couponCode', couponCode);
+    }
+    return this.http.get<any>(`${this.baseUrl}/expected-total`, { params });
+  }
