@@ -1592,3 +1592,20 @@ sec-fetch-site
 same-site
 user-agent
 Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
+
+
+///////////
+@PostMapping
+public ResponseEntity<?> createBooking(@RequestBody Booking booking) {
+    try {
+        BookingDTO bookingDTO = service.createBooking(booking);
+        return new ResponseEntity<>(bookingDTO, HttpStatus.CREATED);
+    } catch (RuntimeException ex) {
+        ex.printStackTrace(); // ✅ shows full error in backend logs
+        logger.severe("Error creating booking: " + ex.getMessage());
+
+        // ✅ return a proper error JSON message to frontend
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                             .body(new ApiResponse(false, "Booking failed: " + ex.getMessage(), null));
+    }
+}
