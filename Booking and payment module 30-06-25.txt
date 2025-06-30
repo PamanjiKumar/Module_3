@@ -1680,3 +1680,25 @@ public BookingDTO createBooking(Booking bookingRequest) {
     logger.info("Booking created successfully with bookingId: " + savedBooking.getBookingId());
     return dto;
 }
+
+
+//\\/\/
+this.bookingService.createBooking(payload).subscribe({
+  next: (res) => {
+    alert('Booking Created!');
+    this.router.navigate(['/payment'], {
+      state: { bookingId: res.bookingId, userId: res.userId }
+    });
+  },
+  error: (err) => {
+    console.error('Booking failed:', err);
+
+    const errorMsg =
+      err?.error?.message ||         // proper error body (e.g., from ApiResponse)
+      err?.message ||                // generic message (e.g., HttpClient)
+      err?.statusText ||             // fallback HTTP status
+      'Something went wrong.';
+
+    alert('Booking failed: ' + errorMsg);
+  }
+});
