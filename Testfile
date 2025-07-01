@@ -290,3 +290,17 @@ class BookingServiceTest {
         assertEquals(5L, bookingService.getPackageById(5L).getPackageId());
     }
 }
+//////////////
+package com.example.demo;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class TravelBookingPaymentModuleApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
